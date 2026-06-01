@@ -47,6 +47,9 @@ function Login() {
             localStorage.setItem("customerId", user.customer_id);
             localStorage.setItem("permissions", JSON.stringify(user.permissions || []));
 
+            localStorage.setItem("token", "supabase-login");
+            localStorage.setItem("tokenTime", Date.now().toString());
+
             const permissions = user.permissions || [];
 
             if (permissions.includes("evrak")) {
