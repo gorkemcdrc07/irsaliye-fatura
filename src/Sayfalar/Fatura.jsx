@@ -717,7 +717,7 @@ export default function Fatura() {
 
         try {
             const response = await fetch(
-                `${import.meta.env.VITE_SHO_API_BASE_URL}/api/tmsdespatchincomeexpenses/getall`
+                `${import.meta.env.VITE_SHO_API_BASE_URL}/api/tmsdespatchincomeexpenses/getall`,
                 {
                     method: "POST",
                     headers: {
@@ -731,7 +731,6 @@ export default function Fatura() {
                     }),
                 }
             );
-
             const text = await response.text();
             const data = text ? JSON.parse(text) : null;
 
