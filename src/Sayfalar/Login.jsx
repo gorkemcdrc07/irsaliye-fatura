@@ -96,7 +96,7 @@ function Login() {
                 return;
             }
 
-            await tokenYenile();
+            // await tokenYenile();
 
             localStorage.setItem("kullaniciAdi", user.user_name);
             localStorage.setItem("customerId", user.customer_id);
