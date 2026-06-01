@@ -35,8 +35,20 @@ function Login() {
     }
 
     async function tokenYenile() {
-        const response = await fetch("/api/auth/login", {
-            method: "POST",
+        const response = await fetch(
+            `${import.meta.env.VITE_SHO_API_BASE_URL}/api/auth/login`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    userName: "SeferTeslimEvrakları",
+                    password: "55!glzgsok!.577YFGB1225.",
+                }),
+            }
+        );
+        method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
