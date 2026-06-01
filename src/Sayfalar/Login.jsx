@@ -48,15 +48,6 @@ function Login() {
                 }),
             }
         );
-        method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                userName: "SeferTeslimEvrakları",
-                password: "55!glzgsok!.577YFGB1225.",
-            }),
-        });
 
         const data = await response.json();
 
@@ -75,7 +66,6 @@ function Login() {
 
         return token;
     }
-
     async function girisYap(e) {
         e.preventDefault();
         setHata("");
