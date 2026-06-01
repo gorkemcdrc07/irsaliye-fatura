@@ -202,7 +202,7 @@ function TeslimEvraklari() {
         setToplamDosyaSayisi(0);
 
         try {
-            const data = await apiIstek("/api/tmsdespatchdocuments/getall", {
+            const data = await apiIstek("/odak-api/api/tmsdespatchdocuments/getall", {
                 startDate: baslangic,
                 endDate: bitis,
                 customerId,
@@ -261,10 +261,9 @@ function TeslimEvraklari() {
 
             try {
                 const data = await apiIstek(
-                    "/api/tmsdespatchdocuments/documentgetbyid",
+                    "/odak-api/api/tmsdespatchdocuments/documentgetbyid",
                     { id, tmsDespatchId }
                 );
-
                 const files = dosyalariBul(data).map((file, index) => ({
                     ...file,
                     index,
