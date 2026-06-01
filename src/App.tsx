@@ -35,14 +35,11 @@ type ProtectedRouteProps = {
     permission: string;
 };
 
-function ProtectedRoute({
-    children,
-    permission,
-}: ProtectedRouteProps) {
-    const token = localStorage.getItem("token");
+function ProtectedRoute({ children, permission }: ProtectedRouteProps) {
+    const kullaniciAdi = localStorage.getItem("kullaniciAdi");
     const permissions = getPermissions();
 
-    if (!token) {
+    if (!kullaniciAdi) {
         return <Navigate to="/login" replace />;
     }
 
@@ -55,9 +52,9 @@ function ProtectedRoute({
 
 function Layout() {
     const location = useLocation();
-    const token = localStorage.getItem("token");
+    const kullaniciAdi = localStorage.getItem("kullaniciAdi");
 
-    const topbarGoster = location.pathname !== "/login" && !!token;
+    const topbarGoster = location.pathname !== "/login" && !!kullaniciAdi;
 
     return (
         <>
@@ -67,7 +64,7 @@ function Layout() {
                 <Route
                     path="/login"
                     element={
-                        token ? (
+                        kullaniciAdi ? (
                             <Navigate to={getDefaultPath()} replace />
                         ) : (
                             <Login />
@@ -106,7 +103,7 @@ function Layout() {
                     path="*"
                     element={
                         <Navigate
-                            to={token ? getDefaultPath() : "/login"}
+                            to={kullaniciAdi ? getDefaultPath() : "/login"}
                             replace
                         />
                     }
