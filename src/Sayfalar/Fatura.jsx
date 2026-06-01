@@ -714,28 +714,33 @@ export default function Fatura() {
         setLoading(true);
         setHata("");
         setVeriler([]);
-        try {
-            const token = localStorage.getItem("token");
-            if (!token) throw new Error("Token bulunamadı. Lütfen tekrar giriş yapın.");
 
-            const response = await fetch("/odak-api/api/tmsdespatchincomeexpenses/getall", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    startDate: `${startDate}T00:00:00`,
-                    endDate: `${endDate}T23:59:59`,
-                    userId: Number(userId),
-                    page: Number(page),
-                }),
-            });
-            const data = await response.json();
-            if (!response.ok || data?.Success === false)
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_SHO_API_BASE_URL}/odak-api/api/tmsdespatchincomeexpenses/getall`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        startDate: `${startDate}T00:00:00`,
+                        endDate: `${endDate}T23:59:59`,
+                        userId: Number(userId),
+                        page: Number(page),
+                    }),
+                }
+            );
+
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : null;
+
+            if (!response.ok || data?.Success === false) {
                 throw new Error(data?.Message || "Fatura verileri alınamadı.");
+            }
 
             const liste = Array.isArray(data?.Data) ? data.Data : [];
+
             setVeriler(
                 liste.map((item) => ({
                     tipi: item.Tipi,
@@ -752,12 +757,12 @@ export default function Fatura() {
                 }))
             );
         } catch (error) {
+            console.error("FATURA ERROR:", error);
             setHata(error.message || "Fatura verileri alınamadı.");
         } finally {
             setLoading(false);
         }
     }
-
     // ── derived analytics ──────────────────────────────────────────────────────
     const tumTipler = ["Tümü", ...new Set(veriler.map((v) => v.tipi).filter(Boolean))];
     const tumProjeler = ["Tümü", ...new Set(veriler.map((v) => v.projeAdi).filter(Boolean))];
