@@ -717,7 +717,7 @@ export default function Fatura() {
 
         try {
             const response = await fetch(
-                `${import.meta.env.VITE_SHO_API_BASE_URL}/odak-api/api/tmsdespatchincomeexpenses/getall`,
+                `${import.meta.env.VITE_SHO_API_BASE_URL}/api/tmsdespatchincomeexpenses/getall`
                 {
                     method: "POST",
                     headers: {
