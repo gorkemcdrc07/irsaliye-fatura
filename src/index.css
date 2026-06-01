@@ -1,0 +1,62 @@
+body {
+    background: #f8fafc;
+    color: #0f172a;
+    font-family: Arial, sans-serif;
+}
+
+.uygulama {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f8fafc, #e0f2fe);
+}
+
+.topbar {
+    background: rgba(255, 255, 255, 0.9);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.menu-link {
+    color: #475569;
+}
+
+    .menu-link:hover {
+        color: #0f172a;
+        background: rgba(37, 99, 235, 0.08);
+    }
+
+.tarih-alani strong,
+.proje-hucre {
+    color: #0f172a !important;
+}
+
+.ikon-btn,
+.ozet-kart,
+.bolge-paneli,
+.analiz-tablo-karti {
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    color: #0f172a;
+}
+
+    .hero p,
+    .analiz-hero p,
+    .ozet-kart span,
+    .tablo-ust span {
+        color: #64748b;
+    }
+
+.filtre-satiri input,
+.filtre-satiri select {
+    background: white;
+    color: #0f172a;
+    border: 1px solid rgba(15, 23, 42, 0.14);
+}
+
+.analiz-tablo-karti th {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.analiz-tablo-karti td {
+    color: #334155;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
