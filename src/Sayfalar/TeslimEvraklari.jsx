@@ -154,37 +154,15 @@ function TeslimEvraklari() {
     }
 
     async function tokenYenile() {
-        const response = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                userName: "SeferTeslimEvrakları",
-                password: "55!glzgsok!.577YFGB1225.",
-            }),
-        });
-
-        const data = await guvenliJsonOku(response);
-
-        if (!response.ok) throw new Error("Token yenilenemedi.");
-
-        const token = tokenBul(data);
-        if (!token) throw new Error("Token alınamadı.");
-
-        localStorage.setItem("token", token);
-        localStorage.setItem("tokenTime", Date.now().toString());
-
-        return token;
+        throw new Error("Token servisi devre dışı.");
     }
 
     async function apiIstek(url, body, tekrarDene = true) {
-        let token = localStorage.getItem("token");
-
-        if (!token) {
-            token = await tokenYenile();
-        }
-
-        const response = await fetch(url, {
-            method: "POST",
+        const token = localStorage.getItem("token") || "supabase-login";
+        const response = await fetch(
+            `${import.meta.env.VITE_SHO_API_BASE_URL}${url}`,
+            {
+                method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
@@ -195,12 +173,9 @@ function TeslimEvraklari() {
 
         const data = await guvenliJsonOku(response);
 
-        if (response.status === 401 && tekrarDene) {
-            const yeniToken = await tokenYenile();
-            localStorage.setItem("token", yeniToken);
-            return apiIstek(url, body, false);
+        if (response.status === 401) {
+            throw new Error("Yetkilendirme hatası.");
         }
-
         if (!response.ok) {
             throw new Error(data?.message || `API hata: ${response.status}`);
         }
