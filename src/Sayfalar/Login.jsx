@@ -11,61 +11,6 @@ function Login() {
     const [hata, setHata] = useState("");
     const [loading, setLoading] = useState(false);
 
-    function tokenBul(data) {
-        return (
-            data?.token ||
-            data?.accessToken ||
-            data?.access_token ||
-            data?.jwtToken ||
-            data?.jwt ||
-            data?.bearerToken ||
-            data?.data?.token ||
-            data?.data?.accessToken ||
-            data?.data?.access_token ||
-            data?.data?.jwtToken ||
-            data?.data?.jwt ||
-            data?.data?.bearerToken ||
-            data?.result?.token ||
-            data?.result?.accessToken ||
-            data?.result?.access_token ||
-            data?.result?.jwtToken ||
-            data?.result?.jwt ||
-            data?.result?.bearerToken
-        );
-    }
-
-    async function tokenYenile() {
-        const response = await fetch(
-            `${import.meta.env.VITE_SHO_API_BASE_URL}/api/auth/login`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    userName: "SeferTeslimEvrakları",
-                    password: "55!glzgsok!.577YFGB1225.",
-                }),
-            }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data?.message || "API giriş başarısız.");
-        }
-
-        const token = tokenBul(data);
-
-        if (!token) {
-            throw new Error("Token alınamadı.");
-        }
-
-        localStorage.setItem("token", token);
-        localStorage.setItem("tokenTime", Date.now().toString());
-
-        return token;
-    }
     async function girisYap(e) {
         e.preventDefault();
         setHata("");
@@ -86,8 +31,10 @@ function Login() {
                 .eq("is_active", true)
                 .maybeSingle();
 
+            console.log("LOGIN USER:", user);
+            console.log("SUPABASE ERROR:", error);
+
             if (error) {
-                console.error("SUPABASE ERROR:", error);
                 throw new Error("Kullanıcı kontrolü yapılamadı.");
             }
 
@@ -95,8 +42,6 @@ function Login() {
                 setHata("Kullanıcı adı veya şifre hatalı.");
                 return;
             }
-
-            // await tokenYenile();
 
             localStorage.setItem("kullaniciAdi", user.user_name);
             localStorage.setItem("customerId", user.customer_id);
