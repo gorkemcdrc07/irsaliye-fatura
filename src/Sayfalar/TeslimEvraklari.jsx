@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from "react";
+﻿import { useMemo, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
 import "./TeslimEvraklari.css";
 
@@ -16,6 +16,7 @@ function TeslimEvraklari() {
     const [hata, setHata] = useState("");
     const [yuklenenDosyaSayisi, setYuklenenDosyaSayisi] = useState(0);
     const [toplamDosyaSayisi, setToplamDosyaSayisi] = useState(0);
+    const [arama, setArama] = useState("");
 
     const istekNo = useRef(0);
 
@@ -71,23 +72,28 @@ function TeslimEvraklari() {
 
         const fileContent = obj.fileContent || obj.FileContent || obj.file_content || "";
 
-        if (fileContent) {
+        const documentReferenceNumber =
+            obj.documentReferenceNumber ||
+            obj.DocumentReferenceNumber ||
+            obj.document_reference_number ||
+            obj.referenceNumber ||
+            obj.ReferenceNumber ||
+            obj.documentNo ||
+            obj.DocumentNo ||
+            "";
+
+        if (fileContent || documentReferenceNumber) {
             bulunanlar.push({
                 fileContent,
                 documentReferenceNumber:
-                    obj.documentReferenceNumber ||
-                    obj.DocumentReferenceNumber ||
-                    obj.document_reference_number ||
-                    obj.referenceNumber ||
-                    obj.ReferenceNumber ||
-                    `Dosya ${bulunanlar.length + 1}`,
+                    documentReferenceNumber || `Dosya ${bulunanlar.length + 1}`,
+                hasFile: Boolean(fileContent),
             });
         }
 
         Object.keys(obj).forEach((key) => dosyalariBul(obj[key], bulunanlar));
         return bulunanlar;
     }
-
     function temizBase64Al(fileContent) {
         if (!fileContent) return "";
         return String(fileContent).replace(/\s/g, "").split(",").pop();
@@ -405,6 +411,34 @@ function TeslimEvraklari() {
             ? seciliEvrak.files[seciliDosyaIndex] || seciliEvrak.files[0]
             : null;
 
+    const filtreliEvraklar = useMemo(() => {
+        const q = arama.trim().toLocaleLowerCase("tr-TR");
+
+        if (!q) return evraklar;
+
+        return evraklar.filter((evrak) => {
+            const aranacakAlanlar = [
+                evrak?.documentNo,
+                evrak?.deliveryAddressCode,
+                evrak?.plateNumber,
+                evrak?.trailerPlateNumber,
+                evrak?.fullName,
+                evrak?.customerOrderNumber,
+                formatTarih(evrak?.despatchDate),
+                seferDurumuBul(seferDurumDegeriBul(evrak)),
+                evrakDurumuBul(evrak?.tmsDespatchDocumentStatu),
+                ...(evrak?.files || []).map((f) => f.documentReferenceNumber),
+            ];
+
+            return aranacakAlanlar
+                .filter(Boolean)
+                .some((v) =>
+                    String(v).toLocaleLowerCase("tr-TR").includes(q)
+                );
+        });
+    }, [arama, evraklar]);
+
+
     const ekranYukleniyor = loading || mergeLoading;
 
     const siradakiKayit = Math.min(yuklenenDosyaSayisi + 1, toplamDosyaSayisi);
@@ -478,6 +512,16 @@ function TeslimEvraklari() {
                     />
                 </div>
 
+                <div className="date-field">
+                    <label>Genel Arama</label>
+                    <input
+                        type="text"
+                        placeholder="Sefer, plaka, sürücü, irsaliye no ara..."
+                        value={arama}
+                        onChange={(e) => setArama(e.target.value)}
+                    />
+                </div>
+
                 <button
                     className="refresh-btn"
                     onClick={evraklariGetir}
@@ -503,7 +547,7 @@ function TeslimEvraklari() {
                         <div className="table-head">
                             <div>
                                 <h2>Sefer Listesi</h2>
-                                <span>{evraklar.length} kayıt</span>
+                                <span>{filtreliEvraklar.length} / {evraklar.length} kayıt</span>
                             </div>
                         </div>
 
@@ -515,13 +559,16 @@ function TeslimEvraklari() {
                                         <th>Araç</th>
                                         <th>Sürücü</th>
                                         <th>Tarih</th>
+                                        <th>Sefer Durumu</th>
                                         <th>Evrak Durumu</th>
-                                        <th>Dosya</th>
+                                        <th style={{ textAlign: "center" }}>
+                                            GÖRÜNTÜ / İRSALİYE SAYISI
+                                        </th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
-                                    {evraklar.map((evrak, index) => {
+                                    {filtreliEvraklar.map((evrak, index) => {
                                         const secili =
                                             seciliEvrak?.tmsDespatchDocumentId ===
                                             evrak.tmsDespatchDocumentId &&
@@ -552,18 +599,24 @@ function TeslimEvraklari() {
 
                                                 <td>
                                                     <span className="status-badge">
-                                                        {evrakDurumuBul(evrak.tmsDespatchDocumentStatu)}
+                                                        {seferDurumuBul(seferDurumDegeriBul(evrak))}
                                                     </span>
                                                 </td>
 
                                                 <td>
+                                                    <span className="status-badge">
+                                                        {evrakDurumuBul(evrak.tmsDespatchDocumentStatu)}
+                                                    </span>
+                                                </td>
+
+                                                <td style={{ textAlign: "center" }}>
                                                     {evrak.fileContentLoading ? (
                                                         <span className="mini-loading">Hazırlanıyor</span>
                                                     ) : evrak.fileContentError ? (
                                                         <span className="mini-error">Yok</span>
                                                     ) : (
                                                         <span className="mini-success">
-                                                            {evrak.files.length} dosya
+                                                            {evrak.files.filter((f) => f.hasFile).length} / {evrak.files.length}
                                                         </span>
                                                     )}
                                                 </td>
@@ -625,12 +678,12 @@ function TeslimEvraklari() {
                                         </div>
 
                                         <div className="action-group">
-                                            {seciliDosya && (
-                                                <a
+                                                {seciliDosya?.hasFile && (
+                                                    <a
                                                     className="download-btn light"
                                                     href={dosyaUrlOlustur(seciliDosya.fileContent)}
-                                                    download={`${seciliEvrak.documentNo}-${seciliDosya.documentReferenceNumber}.${dosyaUzantisiBul(seciliDosya.fileContent)}`}
-                                                >
+                                                        download={`${seciliDosya.documentReferenceNumber}.${dosyaUzantisiBul(seciliDosya.fileContent)}`}
+                                                    >
                                                     Seçili Dosyayı İndir
                                                 </a>
                                             )}
@@ -698,13 +751,15 @@ function TeslimEvraklari() {
                                             ) : (
                                                 seciliDosya && (
                                                     <>
-                                                        <div className="selected-file-meta">
-                                                            <span>Document Reference Number</span>
-                                                            <strong>{seciliDosya.documentReferenceNumber}</strong>
-                                                        </div>
 
-                                                        {dosyaGoster(seciliDosya, seciliEvrak)}
-                                                    </>
+                                                                        {seciliDosya.hasFile ? (
+                                                                            dosyaGoster(seciliDosya, seciliEvrak)
+                                                                        ) : (
+                                                                            <div className="file-empty error">
+                                                                                Bu irsaliye numarası var ancak görsel/PDF dosyası bulunamadı.
+                                                                            </div>
+                                                                        )}
+                                                                    </>
                                                 )
                                             )}
                                         </>

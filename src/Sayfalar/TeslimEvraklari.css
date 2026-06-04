@@ -307,6 +307,11 @@
         vertical-align: middle;
     }
 
+        /* GÖRÜNTÜ / İRSALİYE SAYISI sütunu */
+        .evrak-table th:nth-child(7),
+        .evrak-table td:nth-child(7) {
+            text-align: center;
+        }
         .evrak-table td span {
             display: block;
             margin-top: 2px;
