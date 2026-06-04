@@ -159,14 +159,15 @@ function TeslimEvraklari() {
 
     async function apiIstek(url, body, tekrarDene = true) {
         const token = localStorage.getItem("token") || "supabase-login";
-        const response = await fetch(
-            `${import.meta.env.VITE_SHO_API_BASE_URL}${url}`,
-            {
-                method: "POST",
+        const fullUrl = `${import.meta.env.VITE_SHO_API_BASE_URL}${url}`;
+
+        console.log("API FULL URL:", fullUrl);
+
+        const response = await fetch(fullUrl, {
+            method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
-                token,
             },
             body: JSON.stringify(body),
         });
