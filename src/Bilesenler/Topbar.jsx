@@ -9,113 +9,103 @@ function getPermissions() {
     }
 }
 
+const NAV_ITEMS = [
+    { path: "/", label: "Ana Sayfa", icon: "ti-layout-dashboard", perm: "evrak" },
+    { path: "/teslim-evraklari", label: "Teslim Evrakları", icon: "ti-file-description", perm: "evrak" },
+    { path: "/fatura", label: "Fatura", icon: "ti-receipt", perm: "fatura" },
+    { path: "/kullanici-yonetimi", label: "Kullanıcı Yönetimi", icon: "ti-users", perm: "admin" },
+];
+
 function Topbar() {
     const navigate = useNavigate();
     const location = useLocation();
 
     const permissions = getPermissions();
     const kullaniciAdi = localStorage.getItem("kullaniciAdi") || "Kullanıcı";
+    const role = localStorage.getItem("role") || "kullanici";
 
     const evrakYetkisiVar = permissions.includes("evrak");
     const faturaYetkisiVar = permissions.includes("fatura");
+    const adminYetkisiVar = role === "admin";
 
-    const kullanici = {
-        adSoyad: kullaniciAdi,
-        rol:
-            evrakYetkisiVar && faturaYetkisiVar
-                ? "Evrak ve Fatura Kullanıcısı"
-                : evrakYetkisiVar
-                    ? "Evrak Kullanıcısı"
-                    : faturaYetkisiVar
-                        ? "Fatura Kullanıcısı"
-                        : "Yetkisiz Kullanıcı",
-        avatar: kullaniciAdi.substring(0, 2).toUpperCase(),
-    };
+    const rolLabel = adminYetkisiVar
+        ? "Sistem Yöneticisi"
+        : evrakYetkisiVar && faturaYetkisiVar
+            ? "Evrak & Fatura"
+            : evrakYetkisiVar
+                ? "Evrak Kullanıcısı"
+                : faturaYetkisiVar
+                    ? "Fatura Kullanıcısı"
+                    : "Yetkisiz";
+
+    const avatar = kullaniciAdi.substring(0, 2).toUpperCase();
+
+    const gorunurNavItems = NAV_ITEMS.filter((item) => {
+        if (item.perm === "admin") return adminYetkisiVar;
+        if (item.perm === "evrak") return evrakYetkisiVar;
+        if (item.perm === "fatura") return faturaYetkisiVar;
+        return false;
+    });
 
     function cikisYap() {
-        localStorage.removeItem("token");
-        localStorage.removeItem("tokenTime");
-        localStorage.removeItem("kullaniciAdi");
-        localStorage.removeItem("customerId");
-        localStorage.removeItem("permissions");
-
+        ["token", "tokenTime", "kullaniciAdi", "customerId", "permissions", "role"].forEach(
+            (k) => localStorage.removeItem(k)
+        );
         navigate("/login", { replace: true });
     }
 
     function anaSayfayaGit() {
-        if (evrakYetkisiVar) {
-            navigate("/");
-            return;
-        }
-
-        if (faturaYetkisiVar) {
-            navigate("/fatura");
-            return;
-        }
-
+        if (evrakYetkisiVar) return navigate("/");
+        if (faturaYetkisiVar) return navigate("/fatura");
+        if (adminYetkisiVar) return navigate("/kullanici-yonetimi");
         navigate("/login", { replace: true });
     }
 
     return (
         <header className="topbar">
-            <div className="brand" onClick={anaSayfayaGit}>
-                <div className="brand-mark">D</div>
-
-                <div>
-                    <h2>DocuFleet</h2>
-                    <span>Teslim Evrak Takip Sistemi</span>
+            {/* ── Brand ── */}
+            <div className="brand" onClick={anaSayfayaGit} role="button" tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && anaSayfayaGit()}>
+                <div className="brand-mark">
+                    <i className="ti ti-truck-delivery" />
+                </div>
+                <div className="brand-text">
+                    <span className="brand-name">DocuFleet</span>
+                    <span className="brand-sub">Teslim Evrak Takip</span>
                 </div>
             </div>
 
-            <nav className="nav-links">
-                {evrakYetkisiVar && (
-                    <>
-                        <button
-                            className={location.pathname === "/" ? "active" : ""}
-                            onClick={() => navigate("/")}
-                        >
-                            Ana Sayfa
-                        </button>
-
-                        <button
-                            className={
-                                location.pathname === "/teslim-evraklari"
-                                    ? "active"
-                                    : ""
-                            }
-                            onClick={() => navigate("/teslim-evraklari")}
-                        >
-                            Teslim Evrakları
-                        </button>
-                    </>
-                )}
-
-                {faturaYetkisiVar && (
+            {/* ── Nav ── */}
+            <nav className="nav-links" aria-label="Ana menü">
+                {gorunurNavItems.map((item) => (
                     <button
-                        className={location.pathname === "/fatura" ? "active" : ""}
-                        onClick={() => navigate("/fatura")}
+                        key={item.path}
+                        className={`nav-btn ${location.pathname === item.path ? "active" : ""}`}
+                        onClick={() => navigate(item.path)}
                     >
-                        Fatura
+                        <i className={`ti ${item.icon}`} aria-hidden="true" />
+                        {item.label}
                     </button>
-                )}
+                ))}
             </nav>
 
+            {/* ── Actions ── */}
             <div className="top-actions">
                 <button className="icon-btn" aria-label="Bildirimler">
-                    🔔
+                    <i className="ti ti-bell" />
                 </button>
 
                 <div className="user-box">
-                    <div className="avatar">{kullanici.avatar}</div>
-
+                    <div className="user-avatar">{avatar}</div>
                     <div className="user-info">
-                        <strong>{kullanici.adSoyad}</strong>
-                        <span>{kullanici.rol}</span>
+                        <strong>{kullaniciAdi}</strong>
+                        <span>{rolLabel}</span>
                     </div>
                 </div>
 
-                <button className="logout-btn" onClick={cikisYap}>
-                    Çıkış Yap
+                <button className="logout-btn" onClick={cikisYap} aria-label="Çıkış yap">
+                    <i className="ti ti-logout" />
+                    <span>Çıkış</span>
                 </button>
             </div>
         </header>

@@ -39,7 +39,6 @@ function TeslimEvraklari() {
             7: "Teslim Edildi",
             8: "Tamamlandı",
         };
-
         return durumlar[Number(value)] || value || "-";
     }
 
@@ -53,7 +52,6 @@ function TeslimEvraklari() {
             40: "Orjinal Evrak Geldi",
             50: "Evrak Arşivlendi",
         };
-
         return durumlar[Number(value)] || value || "-";
     }
 
@@ -69,9 +67,7 @@ function TeslimEvraklari() {
 
     function dosyalariBul(obj, bulunanlar = []) {
         if (!obj || typeof obj !== "object") return bulunanlar;
-
         const fileContent = obj.fileContent || obj.FileContent || obj.file_content || "";
-
         const documentReferenceNumber =
             obj.documentReferenceNumber ||
             obj.DocumentReferenceNumber ||
@@ -81,19 +77,17 @@ function TeslimEvraklari() {
             obj.documentNo ||
             obj.DocumentNo ||
             "";
-
         if (fileContent || documentReferenceNumber) {
             bulunanlar.push({
                 fileContent,
-                documentReferenceNumber:
-                    documentReferenceNumber || `Dosya ${bulunanlar.length + 1}`,
+                documentReferenceNumber: documentReferenceNumber || `Dosya ${bulunanlar.length + 1}`,
                 hasFile: Boolean(fileContent),
             });
         }
-
         Object.keys(obj).forEach((key) => dosyalariBul(obj[key], bulunanlar));
         return bulunanlar;
     }
+
     function temizBase64Al(fileContent) {
         if (!fileContent) return "";
         return String(fileContent).replace(/\s/g, "").split(",").pop();
@@ -101,23 +95,19 @@ function TeslimEvraklari() {
 
     function dosyaTipiBul(fileContent) {
         const base64 = temizBase64Al(fileContent);
-
         if (base64.startsWith("JVBER")) return "pdf";
         if (base64.startsWith("/9j/")) return "jpg";
         if (base64.startsWith("iVBOR")) return "png";
-
         return "unknown";
     }
 
     function dosyaUrlOlustur(fileContent) {
         const base64 = temizBase64Al(fileContent);
         const tip = dosyaTipiBul(fileContent);
-
         if (!base64) return "";
         if (tip === "pdf") return `data:application/pdf;base64,${base64}`;
         if (tip === "jpg") return `data:image/jpeg;base64,${base64}`;
         if (tip === "png") return `data:image/png;base64,${base64}`;
-
         return `data:application/octet-stream;base64,${base64}`;
     }
 
@@ -140,35 +130,25 @@ function TeslimEvraklari() {
     function base64ToUint8Array(base64) {
         const binary = atob(temizBase64Al(base64));
         const bytes = new Uint8Array(binary.length);
-
         for (let i = 0; i < binary.length; i++) {
             bytes[i] = binary.charCodeAt(i);
         }
-
         return bytes;
     }
 
     async function guvenliJsonOku(response) {
         const text = await response.text();
         if (!text) return null;
-
-        try {
-            return JSON.parse(text);
-        } catch {
-            return null;
-        }
+        try { return JSON.parse(text); } catch { return null; }
     }
 
     async function tokenYenile() {
         throw new Error("Token servisi devre dışı.");
     }
 
-    async function apiIstek(url, body, tekrarDene = true) {
+    async function apiIstek(url, body) {
         const token = localStorage.getItem("token") || "supabase-login";
         const fullUrl = `${import.meta.env.VITE_SHO_API_BASE_URL}${url}`;
-
-        console.log("API FULL URL:", fullUrl);
-
         const response = await fetch(fullUrl, {
             method: "POST",
             headers: {
@@ -177,25 +157,21 @@ function TeslimEvraklari() {
             },
             body: JSON.stringify(body),
         });
-
         const data = await guvenliJsonOku(response);
-
-        if (response.status === 401) {
-            throw new Error("Yetkilendirme hatası.");
-        }
-        if (!response.ok) {
-            throw new Error(data?.message || `API hata: ${response.status}`);
-        }
-
+        if (response.status === 401) throw new Error("Yetkilendirme hatası.");
+        if (!response.ok) throw new Error(data?.message || `API hata: ${response.status}`);
         return data;
     }
 
     async function evraklariGetir() {
         const aktifIstek = Date.now();
         istekNo.current = aktifIstek;
-
-        const customerId = Number(localStorage.getItem("customerId")) || 59765;
-
+        const customerId = localStorage.getItem("customerId");
+        if (!customerId) {
+            setHata("Müşteri bilgisi bulunamadı. Lütfen tekrar giriş yapın.");
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setFileLoading(false);
         setMergeLoading(false);
@@ -212,33 +188,25 @@ function TeslimEvraklari() {
             const data = await apiIstek("/odak-api/api/tmsdespatchdocuments/getall", {
                 startDate: baslangic,
                 endDate: bitis,
-                customerId,
+                customerId: Number(customerId),
                 vehicleId: 0,
                 driverId: 0,
             });
-
-            const liste = Array.isArray(data)
-                ? data
-                : data?.data || data?.items || data?.result || [];
-
+            const liste = Array.isArray(data) ? data : data?.data || data?.items || data?.result || [];
             if (istekNo.current !== aktifIstek) return;
-
             const temizListe = liste.map((evrak) => ({
                 ...evrak,
                 files: [],
                 fileContentLoading: true,
                 fileContentError: "",
             }));
-
             setEvraklar(temizListe);
             setToplamDosyaSayisi(temizListe.length);
             setLoading(false);
             setIlkYuklemeTamamlandi(true);
-
             await dosyalariGetir(temizListe, aktifIstek);
         } catch (error) {
             if (istekNo.current !== aktifIstek) return;
-
             setHata(error.message || "Evrak verileri çekilemedi.");
             setLoading(false);
             setFileLoading(false);
@@ -248,64 +216,39 @@ function TeslimEvraklari() {
 
     async function dosyalariGetir(liste, aktifIstek) {
         setFileLoading(true);
-
         for (const evrak of liste) {
             if (istekNo.current !== aktifIstek) return;
-
             const id = evrak?.tmsDespatchDocumentId;
             const tmsDespatchId = evrak?.tmsDespatchId;
-
             if (!id || !tmsDespatchId) {
-                evrakGuncelle(evrak, {
-                    files: [],
-                    fileContentLoading: false,
-                    fileContentError: "ID bilgileri eksik.",
-                });
-
-                setYuklenenDosyaSayisi((onceki) => onceki + 1);
+                evrakGuncelle(evrak, { files: [], fileContentLoading: false, fileContentError: "ID bilgileri eksik." });
+                setYuklenenDosyaSayisi((p) => p + 1);
                 continue;
             }
-
             try {
-                const data = await apiIstek(
-                    "/odak-api/api/tmsdespatchdocuments/documentgetbyid",
-                    { id, tmsDespatchId }
-                );
+                const data = await apiIstek("/odak-api/api/tmsdespatchdocuments/documentgetbyid", { id, tmsDespatchId });
                 const files = dosyalariBul(data).map((file, index) => ({
                     ...file,
                     index,
                     type: dosyaTipiBul(file.fileContent),
                 }));
-
-                evrakGuncelle(evrak, {
-                    files,
-                    fileContentLoading: false,
-                    fileContentError: files.length > 0 ? "" : "Dosya bulunamadı.",
-                });
+                evrakGuncelle(evrak, { files, fileContentLoading: false, fileContentError: files.length > 0 ? "" : "Dosya bulunamadı." });
             } catch (error) {
-                evrakGuncelle(evrak, {
-                    files: [],
-                    fileContentLoading: false,
-                    fileContentError: error.message || "Dosya çekilemedi.",
-                });
+                evrakGuncelle(evrak, { files: [], fileContentLoading: false, fileContentError: error.message || "Dosya çekilemedi." });
             } finally {
-                setYuklenenDosyaSayisi((onceki) => onceki + 1);
+                setYuklenenDosyaSayisi((p) => p + 1);
             }
         }
-
-        if (istekNo.current === aktifIstek) {
-            setFileLoading(false);
-        }
+        if (istekNo.current === aktifIstek) setFileLoading(false);
     }
 
     function evrakGuncelle(eskiEvrak, yeniAlanlar) {
         setEvraklar((oncekiListe) =>
             oncekiListe.map((item) => {
-                const ayniKayit =
+                const ayni =
                     item.tmsDespatchDocumentId === eskiEvrak.tmsDespatchDocumentId &&
                     item.tmsDespatchId === eskiEvrak.tmsDespatchId;
-
-                return ayniKayit ? { ...item, ...yeniAlanlar } : item;
+                return ayni ? { ...item, ...yeniAlanlar } : item;
             })
         );
     }
@@ -318,48 +261,27 @@ function TeslimEvraklari() {
 
     async function topluPdfOlustur() {
         if (!seciliEvrak?.files?.length) return;
-
         setMergeLoading(true);
         setBirlesikPdfUrl("");
-
         try {
             const hedefPdf = await PDFDocument.create();
-
             for (const file of seciliEvrak.files) {
                 const tip = dosyaTipiBul(file.fileContent);
                 const bytes = base64ToUint8Array(file.fileContent);
-
                 if (tip === "pdf") {
                     const kaynakPdf = await PDFDocument.load(bytes);
-                    const sayfalar = await hedefPdf.copyPages(
-                        kaynakPdf,
-                        kaynakPdf.getPageIndices()
-                    );
-
-                    sayfalar.forEach((sayfa) => hedefPdf.addPage(sayfa));
+                    const sayfalar = await hedefPdf.copyPages(kaynakPdf, kaynakPdf.getPageIndices());
+                    sayfalar.forEach((s) => hedefPdf.addPage(s));
                 }
-
                 if (tip === "jpg" || tip === "png") {
-                    const image =
-                        tip === "jpg"
-                            ? await hedefPdf.embedJpg(bytes)
-                            : await hedefPdf.embedPng(bytes);
-
+                    const image = tip === "jpg" ? await hedefPdf.embedJpg(bytes) : await hedefPdf.embedPng(bytes);
                     const page = hedefPdf.addPage([image.width, image.height]);
-                    page.drawImage(image, {
-                        x: 0,
-                        y: 0,
-                        width: image.width,
-                        height: image.height,
-                    });
+                    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
                 }
             }
-
             const pdfBytes = await hedefPdf.save();
             const blob = new Blob([pdfBytes], { type: "application/pdf" });
-            const url = URL.createObjectURL(blob);
-
-            setBirlesikPdfUrl(url);
+            setBirlesikPdfUrl(URL.createObjectURL(blob));
         } catch (error) {
             console.error("TOPLU PDF ERROR:", error);
             setHata("Dosyalar birleştirilemedi.");
@@ -368,9 +290,7 @@ function TeslimEvraklari() {
         }
     }
 
-    function deger(value) {
-        return value || "-";
-    }
+    function deger(value) { return value || "-"; }
 
     function formatTarih(tarih) {
         if (!tarih) return "-";
@@ -380,395 +300,384 @@ function TeslimEvraklari() {
     function dosyaGoster(file, evrak) {
         const tip = dosyaTipiBul(file.fileContent);
         const url = dosyaUrlOlustur(file.fileContent);
-
         if (tip === "pdf") {
-            return (
-                <iframe
-                    className="file-viewer"
-                    src={url}
-                    title={`PDF-${evrak.documentNo || "evrak"}-${file.index}`}
-                />
-            );
+            return <iframe className="file-viewer" src={url} title={`PDF-${evrak.documentNo || "evrak"}-${file.index}`} />;
         }
-
         if (tip === "jpg" || tip === "png") {
             return (
                 <div className="image-viewer-wrap">
-                    <img
-                        className="image-viewer"
-                        src={url}
-                        alt={`${evrak.documentNo || "teslim-evraki"}-${file.index}`}
-                    />
+                    <img className="image-viewer" src={url} alt={`${evrak.documentNo || "teslim-evraki"}-${file.index}`} />
                 </div>
             );
         }
-
         return <div className="file-empty error">Dosya tipi görüntülenemiyor.</div>;
     }
 
-    const seciliDosya =
-        seciliEvrak?.files?.length > 0
-            ? seciliEvrak.files[seciliDosyaIndex] || seciliEvrak.files[0]
-            : null;
+    const seciliDosya = seciliEvrak?.files?.length > 0
+        ? seciliEvrak.files[seciliDosyaIndex] || seciliEvrak.files[0]
+        : null;
 
     const filtreliEvraklar = useMemo(() => {
         const q = arama.trim().toLocaleLowerCase("tr-TR");
-
         if (!q) return evraklar;
-
         return evraklar.filter((evrak) => {
-            const aranacakAlanlar = [
-                evrak?.documentNo,
-                evrak?.deliveryAddressCode,
-                evrak?.plateNumber,
-                evrak?.trailerPlateNumber,
-                evrak?.fullName,
-                evrak?.customerOrderNumber,
+            const alanlar = [
+                evrak?.documentNo, evrak?.deliveryAddressCode, evrak?.plateNumber,
+                evrak?.trailerPlateNumber, evrak?.fullName, evrak?.customerOrderNumber,
                 formatTarih(evrak?.despatchDate),
                 seferDurumuBul(seferDurumDegeriBul(evrak)),
                 evrakDurumuBul(evrak?.tmsDespatchDocumentStatu),
                 ...(evrak?.files || []).map((f) => f.documentReferenceNumber),
             ];
-
-            return aranacakAlanlar
-                .filter(Boolean)
-                .some((v) =>
-                    String(v).toLocaleLowerCase("tr-TR").includes(q)
-                );
+            return alanlar.filter(Boolean).some((v) => String(v).toLocaleLowerCase("tr-TR").includes(q));
         });
     }, [arama, evraklar]);
 
-
-    const ekranYukleniyor = loading || mergeLoading;
+    const yuklemeYuzdesi = toplamDosyaSayisi > 0
+        ? Math.round((yuklenenDosyaSayisi / toplamDosyaSayisi) * 100)
+        : 0;
 
     const siradakiKayit = Math.min(yuklenenDosyaSayisi + 1, toplamDosyaSayisi);
-    const yuklemeYuzdesi =
-        toplamDosyaSayisi > 0
-            ? Math.round((yuklenenDosyaSayisi / toplamDosyaSayisi) * 100)
-            : 0;
 
     return (
         <main className="teslim-page">
-            {ekranYukleniyor && (
+
+            {/* ── Full-screen loading overlay ── */}
+            {(loading || mergeLoading) && (
                 <div className="loading-overlay">
-                    <div className="modern-loader">
+                    <div className="loader-wrap">
                         <div className="loader-ring" />
                         <div className="loader-core" />
                     </div>
                 </div>
             )}
 
+            {/* ── File loading toast ── */}
             {fileLoading && !loading && (
                 <div className="file-loading-toast">
-                    <div
-                        className="toast-progress-ring"
-                        style={{
-                            "--progress": `${yuklemeYuzdesi * 3.6}deg`,
-                        }}
-                    >
+                    <div className="toast-ring" style={{ "--pct": `${yuklemeYuzdesi * 3.6}deg` }}>
                         <span>{yuklemeYuzdesi}%</span>
                     </div>
-
-                    <div className="toast-content">
+                    <div className="toast-body">
                         <strong>Evrak görselleri yükleniyor</strong>
-                        <span>
-                            {toplamDosyaSayisi} kayıt var, {yuklenenDosyaSayisi} tanesi yüklendi.
-                        </span>
-                        <small>
-                            {siradakiKayit}. kayıt hazırlanıyor...
-                        </small>
+                        <span>{yuklenenDosyaSayisi} / {toplamDosyaSayisi} kayıt tamamlandı</span>
+                        <small>{siradakiKayit}. kayıt hazırlanıyor...</small>
                     </div>
                 </div>
             )}
 
-            <section className="page-head">
-                <div>
-                    <h1>Teslim Evrakları</h1>
-                    <p>Listele, detayları görüntüle, dosyaları tek tek veya toplu indir.</p>
+            {/* ── Page header ── */}
+            <header className="page-header">
+                <div className="page-header-left">
+                    <div className="page-icon">
+                        <i className="ti ti-file-description" />
+                    </div>
+                    <div>
+                        <h1>Teslim Evrakları</h1>
+                        <p>Sefer bazlı evrak görüntüleme ve toplu PDF indirme</p>
+                    </div>
                 </div>
-
-                <div className="result-badge">
-                    <strong>{evraklar.length}</strong>
-                    <span>evrak</span>
+                <div className="evrak-count-badge">
+                    <span className="count-num">{evraklar.length}</span>
+                    <span className="count-lbl">evrak</span>
                 </div>
-            </section>
+            </header>
 
+            {/* ── Filter bar ── */}
             <section className="filter-bar">
-                <div className="date-field">
+                <div className="filter-field">
                     <label>Başlangıç Tarihi</label>
-                    <input
-                        type="date"
-                        value={baslangic}
-                        onChange={(e) => setBaslangic(e.target.value)}
-                    />
+                    <input type="date" value={baslangic} onChange={(e) => setBaslangic(e.target.value)} />
                 </div>
-
-                <div className="date-field">
+                <div className="filter-field">
                     <label>Bitiş Tarihi</label>
-                    <input
-                        type="date"
-                        value={bitis}
-                        onChange={(e) => setBitis(e.target.value)}
-                    />
+                    <input type="date" value={bitis} onChange={(e) => setBitis(e.target.value)} />
                 </div>
-
-                <div className="date-field">
+                <div className="filter-field filter-search">
                     <label>Genel Arama</label>
-                    <input
-                        type="text"
-                        placeholder="Sefer, plaka, sürücü, irsaliye no ara..."
-                        value={arama}
-                        onChange={(e) => setArama(e.target.value)}
-                    />
+                    <div className="search-input-wrap">
+                        <i className="ti ti-search search-icon" />
+                        <input
+                            type="text"
+                            placeholder="Sefer, plaka, sürücü, irsaliye no..."
+                            value={arama}
+                            onChange={(e) => setArama(e.target.value)}
+                        />
+                    </div>
                 </div>
-
-                <button
-                    className="refresh-btn"
-                    onClick={evraklariGetir}
-                    disabled={loading || mergeLoading}
-                >
+                <button className="fetch-btn" onClick={evraklariGetir} disabled={loading || mergeLoading}>
+                    <i className="ti ti-list-search" />
                     Listeyi Getir
                 </button>
             </section>
 
-            {hata && <div className="error-box">{hata}</div>}
+            {/* ── Error ── */}
+            {hata && (
+                <div className="error-banner">
+                    <i className="ti ti-alert-circle" />
+                    {hata}
+                </div>
+            )}
 
+            {/* ── Empty states ── */}
             {!loading && ilkYuklemeTamamlandi && evraklar.length === 0 && (
-                <div className="empty-box">Bu tarih aralığında evrak bulunamadı.</div>
+                <div className="empty-state">
+                    <i className="ti ti-folder-off" />
+                    <strong>Evrak Bulunamadı</strong>
+                    <span>Bu tarih aralığında kayıt bulunmuyor.</span>
+                </div>
             )}
-
             {!ilkYuklemeTamamlandi && evraklar.length === 0 && !loading && (
-                <div className="empty-box">Tarih seçip “Listeyi Getir” butonuna bas.</div>
+                <div className="empty-state">
+                    <i className="ti ti-calendar-search" />
+                    <strong>Tarih Seçin</strong>
+                    <span>Tarih aralığı belirleyip "Listeyi Getir" butonuna basın.</span>
+                </div>
             )}
 
+            {/* ── Table ── */}
             {evraklar.length > 0 && (
-                <section className="content-layout">
-                    <section className="table-card">
-                        <div className="table-head">
-                            <div>
-                                <h2>Sefer Listesi</h2>
-                                <span>{filtreliEvraklar.length} / {evraklar.length} kayıt</span>
+                <section className="table-card">
+                    <div className="table-toolbar">
+                        <div className="toolbar-left">
+                            <h2>Sefer Listesi</h2>
+                            <span className="record-count">{filtreliEvraklar.length} / {evraklar.length} kayıt</span>
+                        </div>
+                    </div>
+
+                    <div className="table-scroll">
+                        <table className="evrak-table">
+                            <thead>
+                                <tr>
+                                    <th>Sefer / Nokta</th>
+                                    <th>Araç / Treyler</th>
+                                    <th>Sürücü / Sipariş</th>
+                                    <th>Tarih</th>
+                                    <th>Sefer Durumu</th>
+                                    <th>Evrak Durumu</th>
+                                    <th className="col-center">Görüntü / İrsaliye Sayısı</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtreliEvraklar.map((evrak, index) => {
+                                    const secili =
+                                        seciliEvrak?.tmsDespatchDocumentId === evrak.tmsDespatchDocumentId &&
+                                        seciliEvrak?.tmsDespatchId === evrak.tmsDespatchId;
+                                    const seferDurum = seferDurumDegeriBul(evrak);
+                                    return (
+                                        <tr
+                                            key={`${evrak.tmsDespatchDocumentId}-${evrak.tmsDespatchId}-${index}`}
+                                            className={secili ? "row-selected" : ""}
+                                            onClick={() => seferSec(evrak)}
+                                        >
+                                            <td>
+                                                <span className="cell-primary">{deger(evrak.documentNo)}</span>
+                                                <span className="cell-secondary">{deger(evrak.deliveryAddressCode)}</span>
+                                            </td>
+                                            <td>
+                                                <span className="cell-primary">{deger(evrak.plateNumber)}</span>
+                                                <span className="cell-secondary">{deger(evrak.trailerPlateNumber)}</span>
+                                            </td>
+                                            <td>
+                                                <span className="cell-primary">{deger(evrak.fullName)}</span>
+                                                <span className="cell-secondary">{deger(evrak.customerOrderNumber)}</span>
+                                            </td>
+                                            <td>
+                                                <span className="cell-date">{formatTarih(evrak.despatchDate)}</span>
+                                            </td>
+                                            <td>
+                                                <span className={`sefer-badge sefer-${seferDurum}`}>
+                                                    {seferDurumuBul(seferDurum)}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span className={`evrak-badge evrak-${evrak.tmsDespatchDocumentStatu}`}>
+                                                    {evrakDurumuBul(evrak.tmsDespatchDocumentStatu)}
+                                                </span>
+                                            </td>
+                                            <td className="col-center">
+                                                {evrak.fileContentLoading ? (
+                                                    <span className="file-chip loading">
+                                                        <i className="ti ti-loader-2 spin" /> Yükleniyor
+                                                    </span>
+                                                ) : evrak.fileContentError ? (
+                                                    <span className="file-chip error">
+                                                        <i className="ti ti-file-off" /> Yok
+                                                    </span>
+                                                ) : (
+                                                    <span className="file-chip ok">
+                                                        <i className="ti ti-files" />
+                                                        {evrak.files.filter((f) => f.hasFile).length}/{evrak.files.length}
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            )}
+
+            {/* ── Detail Modal ── */}
+            {seciliEvrak && (
+                <div className="modal-backdrop" onClick={() => setSeciliEvrak(null)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+
+                        {/* Modal header */}
+                        <div className="modal-header">
+                            <div className="modal-header-left">
+                                <div className="modal-icon">
+                                    <i className="ti ti-file-text" />
+                                </div>
+                                <div>
+                                    <p className="modal-eyebrow">Sefer Detayı</p>
+                                    <h2 className="modal-title">{deger(seciliEvrak.documentNo)}</h2>
+                                </div>
                             </div>
+                            <button className="modal-close" onClick={() => setSeciliEvrak(null)} aria-label="Kapat">
+                                <i className="ti ti-x" />
+                            </button>
                         </div>
 
-                        <div className="table-scroll">
-                            <table className="evrak-table">
-                                <thead>
-                                    <tr>
-                                        <th>Sefer</th>
-                                        <th>Araç</th>
-                                        <th>Sürücü</th>
-                                        <th>Tarih</th>
-                                        <th>Sefer Durumu</th>
-                                        <th>Evrak Durumu</th>
-                                        <th style={{ textAlign: "center" }}>
-                                            GÖRÜNTÜ / İRSALİYE SAYISI
-                                        </th>
-                                    </tr>
-                                </thead>
+                        <div className="modal-body">
+                            {/* Status pills */}
+                            <div className="modal-status-row">
+                                <div className="status-pill">
+                                    <span className="pill-label">Sefer Durumu</span>
+                                    <span className={`sefer-badge sefer-${seferDurumDegeriBul(seciliEvrak)}`}>
+                                        {seferDurumuBul(seferDurumDegeriBul(seciliEvrak))}
+                                    </span>
+                                </div>
+                                <div className="status-pill">
+                                    <span className="pill-label">Evrak Durumu</span>
+                                    <span className={`evrak-badge evrak-${seciliEvrak.tmsDespatchDocumentStatu}`}>
+                                        {evrakDurumuBul(seciliEvrak.tmsDespatchDocumentStatu)}
+                                    </span>
+                                </div>
+                            </div>
 
-                                <tbody>
-                                    {filtreliEvraklar.map((evrak, index) => {
-                                        const secili =
-                                            seciliEvrak?.tmsDespatchDocumentId ===
-                                            evrak.tmsDespatchDocumentId &&
-                                            seciliEvrak?.tmsDespatchId === evrak.tmsDespatchId;
+                            {/* Info grid */}
+                            <div className="modal-info-grid">
+                                <div className="info-cell">
+                                    <span className="info-label"><i className="ti ti-truck" /> Plaka</span>
+                                    <strong>{deger(seciliEvrak.plateNumber)}</strong>
+                                </div>
+                                <div className="info-cell">
+                                    <span className="info-label"><i className="ti ti-user" /> Sürücü</span>
+                                    <strong>{deger(seciliEvrak.fullName)}</strong>
+                                </div>
+                                <div className="info-cell">
+                                    <span className="info-label"><i className="ti ti-container" /> Treyler</span>
+                                    <strong>{deger(seciliEvrak.trailerPlateNumber)}</strong>
+                                </div>
+                                <div className="info-cell">
+                                    <span className="info-label"><i className="ti ti-calendar" /> Sipariş Tarihi</span>
+                                    <strong>{formatTarih(seciliEvrak.despatchDate)}</strong>
+                                </div>
+                                <div className="info-cell">
+                                    <span className="info-label"><i className="ti ti-map-pin" /> Teslim Noktası</span>
+                                    <strong>{deger(seciliEvrak.deliveryAddressCode)}</strong>
+                                </div>
+                                <div className="info-cell">
+                                    <span className="info-label"><i className="ti ti-hash" /> Müşteri Sipariş No</span>
+                                    <strong>{deger(seciliEvrak.customerOrderNumber)}</strong>
+                                </div>
+                            </div>
 
-                                        return (
-                                            <tr
-                                                key={`${evrak.tmsDespatchDocumentId}-${evrak.tmsDespatchId}-${index}`}
-                                                className={secili ? "selected-row" : ""}
-                                                onClick={() => seferSec(evrak)}
+                            {/* File section */}
+                            <div className="modal-files">
+                                <div className="modal-files-header">
+                                    <div className="mfh-left">
+                                        <h3>Evrak Dosyaları</h3>
+                                        <span>{seciliEvrak.files?.length || 0} dosya</span>
+                                    </div>
+                                    <div className="mfh-actions">
+                                        {seciliDosya?.hasFile && (
+                                            <a
+                                                className="btn-light"
+                                                href={dosyaUrlOlustur(seciliDosya.fileContent)}
+                                                download={`${seciliDosya.documentReferenceNumber}.${dosyaUzantisiBul(seciliDosya.fileContent)}`}
                                             >
-                                                <td>
-                                                    <strong>{deger(evrak.documentNo)}</strong>
-                                                    <span>{deger(evrak.deliveryAddressCode)}</span>
-                                                </td>
-
-                                                <td>
-                                                    <strong>{deger(evrak.plateNumber)}</strong>
-                                                    <span>{deger(evrak.trailerPlateNumber)}</span>
-                                                </td>
-
-                                                <td>
-                                                    <strong>{deger(evrak.fullName)}</strong>
-                                                    <span>{deger(evrak.customerOrderNumber)}</span>
-                                                </td>
-
-                                                <td>{formatTarih(evrak.despatchDate)}</td>
-
-                                                <td>
-                                                    <span className="status-badge">
-                                                        {seferDurumuBul(seferDurumDegeriBul(evrak))}
-                                                    </span>
-                                                </td>
-
-                                                <td>
-                                                    <span className="status-badge">
-                                                        {evrakDurumuBul(evrak.tmsDespatchDocumentStatu)}
-                                                    </span>
-                                                </td>
-
-                                                <td style={{ textAlign: "center" }}>
-                                                    {evrak.fileContentLoading ? (
-                                                        <span className="mini-loading">Hazırlanıyor</span>
-                                                    ) : evrak.fileContentError ? (
-                                                        <span className="mini-error">Yok</span>
-                                                    ) : (
-                                                        <span className="mini-success">
-                                                            {evrak.files.filter((f) => f.hasFile).length} / {evrak.files.length}
-                                                        </span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <aside className="detail-panel">
-                        {!seciliEvrak ? (
-                            <div className="empty-detail">Detay için bir sefer seç.</div>
-                        ) : (
-                            <>
-                                <div className="detail-head">
-                                    <div>
-                                        <span>Sefer No</span>
-                                        <h2>{deger(seciliEvrak.documentNo)}</h2>
+                                                <i className="ti ti-download" />
+                                                Seçili Dosyayı İndir
+                                            </a>
+                                        )}
+                                        {seciliEvrak.files?.length > 0 && (
+                                            <button className="btn-dark" onClick={topluPdfOlustur} disabled={mergeLoading}>
+                                                <i className="ti ti-files" />
+                                                Toplu Birleştir
+                                            </button>
+                                        )}
                                     </div>
-
-                                    <button
-                                        className="close-btn"
-                                        onClick={() => setSeciliEvrak(null)}
-                                    >
-                                        Kapat
-                                    </button>
                                 </div>
 
-                                <div className="detail-grid compact">
-                                    <div>
-                                        <span>Evrak Durumu</span>
-                                        <strong>
-                                            {evrakDurumuBul(seciliEvrak.tmsDespatchDocumentStatu)}
-                                        </strong>
+                                {seciliEvrak.fileContentLoading ? (
+                                    <div className="files-placeholder">
+                                        <div className="spinner" />
+                                        <span>Dosyalar yükleniyor...</span>
                                     </div>
-
-                                    <div>
-                                        <span>Sefer Durumu</span>
-                                        <strong>
-                                            {seferDurumuBul(seferDurumDegeriBul(seciliEvrak))}
-                                        </strong>
+                                ) : seciliEvrak.fileContentError ? (
+                                    <div className="files-error">
+                                        <i className="ti ti-alert-triangle" />
+                                        {seciliEvrak.fileContentError}
                                     </div>
-
-                                    <div><span>Plaka</span><strong>{deger(seciliEvrak.plateNumber)}</strong></div>
-                                    <div><span>Sürücü</span><strong>{deger(seciliEvrak.fullName)}</strong></div>
-                                    <div><span>Treyler</span><strong>{deger(seciliEvrak.trailerPlateNumber)}</strong></div>
-                                    <div><span>Sipariş Tarihi</span><strong>{formatTarih(seciliEvrak.despatchDate)}</strong></div>
-                                    <div><span>Teslim Noktası</span><strong>{deger(seciliEvrak.deliveryAddressCode)}</strong></div>
-                                    <div><span>Müşteri No</span><strong>{deger(seciliEvrak.customerOrderNumber)}</strong></div>
-                                </div>
-
-                                <div className="file-section">
-                                    <div className="file-section-head">
-                                        <div>
-                                            <h3>Evrak Dosyaları</h3>
-                                            <span>{seciliEvrak.files?.length || 0} dosya</span>
-                                        </div>
-
-                                        <div className="action-group">
-                                                {seciliDosya?.hasFile && (
-                                                    <a
-                                                    className="download-btn light"
-                                                    href={dosyaUrlOlustur(seciliDosya.fileContent)}
-                                                        download={`${seciliDosya.documentReferenceNumber}.${dosyaUzantisiBul(seciliDosya.fileContent)}`}
-                                                    >
-                                                    Seçili Dosyayı İndir
-                                                </a>
-                                            )}
-
-                                            {seciliEvrak.files?.length > 0 && (
+                                ) : (
+                                    <div className="modal-files-body">
+                                        {/* File tab list */}
+                                        <div className="file-list">
+                                            {seciliEvrak.files.map((file, index) => (
                                                 <button
-                                                    className="download-btn"
-                                                    onClick={topluPdfOlustur}
-                                                    disabled={mergeLoading}
+                                                    key={`${file.documentReferenceNumber}-${index}`}
+                                                    className={`file-item ${seciliDosyaIndex === index ? "file-item-active" : ""}`}
+                                                    onClick={() => { setSeciliDosyaIndex(index); setBirlesikPdfUrl(""); }}
                                                 >
-                                                    Toplu Birleştir
+                                                    <span className={`file-type-badge type-${dosyaTipiBul(file.fileContent)}`}>
+                                                        {dosyaEtiketiBul(file.fileContent)}
+                                                    </span>
+                                                    <span className="file-ref">{file.documentReferenceNumber}</span>
+                                                    {!file.hasFile && <span className="file-missing">Görsel Yok</span>}
                                                 </button>
-                                            )}
+                                            ))}
                                         </div>
-                                    </div>
 
-                                    {seciliEvrak.fileContentLoading ? (
-                                        <div className="file-empty">Dosyalar yükleniyor...</div>
-                                    ) : seciliEvrak.fileContentError ? (
-                                        <div className="file-empty error">
-                                            {seciliEvrak.fileContentError}
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="file-tabs">
-                                                {seciliEvrak.files.map((file, index) => (
-                                                    <button
-                                                        key={`${file.documentReferenceNumber}-${index}`}
-                                                        className={
-                                                            seciliDosyaIndex === index
-                                                                ? "file-tab active"
-                                                                : "file-tab"
-                                                        }
-                                                        onClick={() => {
-                                                            setSeciliDosyaIndex(index);
-                                                            setBirlesikPdfUrl("");
-                                                        }}
-                                                    >
-                                                        <span>{dosyaEtiketiBul(file.fileContent)}</span>
-                                                        <strong>{file.documentReferenceNumber}</strong>
-                                                    </button>
-                                                ))}
-                                            </div>
-
+                                        {/* Viewer */}
+                                        <div className="file-viewer-area">
                                             {birlesikPdfUrl ? (
-                                                <div className="combined-area">
-                                                    <div className="combined-head">
-                                                        <strong>Birleşik PDF</strong>
-
-                                                        <a
-                                                            className="download-btn"
-                                                            href={birlesikPdfUrl}
-                                                            download={`${seciliEvrak.documentNo || "birlesik-evrak"}.pdf`}
-                                                        >
-                                                            Birleşik PDF İndir
+                                                <>
+                                                    <div className="viewer-toolbar">
+                                                        <span className="viewer-title">
+                                                            <i className="ti ti-files" /> Birleşik PDF
+                                                        </span>
+                                                        <a className="btn-dark" href={birlesikPdfUrl} download={`${seciliEvrak.documentNo || "birlesik-evrak"}.pdf`}>
+                                                            <i className="ti ti-download" /> İndir
                                                         </a>
                                                     </div>
-
-                                                    <iframe
-                                                        className="file-viewer"
-                                                        src={birlesikPdfUrl}
-                                                        title="Birleşik PDF"
-                                                    />
-                                                </div>
+                                                    <iframe className="file-viewer" src={birlesikPdfUrl} title="Birleşik PDF" />
+                                                </>
+                                            ) : seciliDosya ? (
+                                                <>
+                                                    <div className="viewer-toolbar">
+                                                        <span className="viewer-title">
+                                                            <i className="ti ti-eye" /> {seciliDosya.documentReferenceNumber}
+                                                        </span>
+                                                    </div>
+                                                    {seciliDosya.hasFile
+                                                        ? dosyaGoster(seciliDosya, seciliEvrak)
+                                                        : <div className="file-empty error"><i className="ti ti-photo-off" /> Görsel bulunamadı.</div>
+                                                    }
+                                                </>
                                             ) : (
-                                                seciliDosya && (
-                                                    <>
-
-                                                                        {seciliDosya.hasFile ? (
-                                                                            dosyaGoster(seciliDosya, seciliEvrak)
-                                                                        ) : (
-                                                                            <div className="file-empty error">
-                                                                                Bu irsaliye numarası var ancak görsel/PDF dosyası bulunamadı.
-                                                                            </div>
-                                                                        )}
-                                                                    </>
-                                                )
+                                                <div className="file-empty">Görüntülemek için sol taraftan dosya seçin.</div>
                                             )}
-                                        </>
-                                    )}
-                                </div>
-                            </>
-                        )}
-                    </aside>
-                </section>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </main>
     );

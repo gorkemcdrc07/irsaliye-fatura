@@ -232,7 +232,11 @@ function AnaSayfa() {
         setHata("");
 
         try {
-            const customerId = Number(localStorage.getItem("customerId")) || 59765;
+            const customerId = Number(localStorage.getItem("customerId"));
+
+            if (!customerId) {
+                throw new Error("Müşteri bilgisi bulunamadı. Lütfen tekrar giriş yapın.");
+            }
 
             const data = await apiIstek("/odak-api/api/tmsdespatchdocuments/getall", {
                 startDate: ayinIlkGunuFormatli(),
@@ -254,7 +258,6 @@ function AnaSayfa() {
             setLoading(false);
         }
     }
-
     useEffect(() => {
         evraklariGetir();
     }, []);

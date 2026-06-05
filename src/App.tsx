@@ -12,6 +12,7 @@ import AnaSayfa from "./Sayfalar/AnaSayfa";
 import TeslimEvraklari from "./Sayfalar/TeslimEvraklari";
 import Fatura from "./Sayfalar/Fatura";
 import Login from "./Sayfalar/Login";
+import KullaniciYonetimi from "./Sayfalar/KullaniciYonetimi";
 
 function getPermissions(): string[] {
     try {
@@ -21,29 +22,41 @@ function getPermissions(): string[] {
     }
 }
 
+function getRole(): string {
+    return localStorage.getItem("role") || "kullanici";
+}
+
 function getDefaultPath(): string {
     const permissions = getPermissions();
+    const role = getRole();
 
     if (permissions.includes("evrak")) return "/";
     if (permissions.includes("fatura")) return "/fatura";
+    if (role === "admin") return "/kullanici-yonetimi";
 
     return "/login";
 }
 
 type ProtectedRouteProps = {
     children: React.ReactNode;
-    permission: string;
+    permission?: string;
+    role?: string;
 };
 
-function ProtectedRoute({ children, permission }: ProtectedRouteProps) {
+function ProtectedRoute({ children, permission, role }: ProtectedRouteProps) {
     const kullaniciAdi = localStorage.getItem("kullaniciAdi");
     const permissions = getPermissions();
+    const userRole = getRole();
 
     if (!kullaniciAdi) {
         return <Navigate to="/login" replace />;
     }
 
-    if (!permissions.includes(permission)) {
+    if (role && userRole !== role) {
+        return <Navigate to={getDefaultPath()} replace />;
+    }
+
+    if (permission && !permissions.includes(permission)) {
         return <Navigate to={getDefaultPath()} replace />;
     }
 
@@ -95,6 +108,15 @@ function Layout() {
                     element={
                         <ProtectedRoute permission="fatura">
                             <Fatura />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/kullanici-yonetimi"
+                    element={
+                        <ProtectedRoute role="admin">
+                            <KullaniciYonetimi />
                         </ProtectedRoute>
                     }
                 />
