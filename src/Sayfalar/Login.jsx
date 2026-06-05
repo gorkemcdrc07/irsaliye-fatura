@@ -156,47 +156,21 @@ function Login() {
 
     return (
         <main className={`login-page ${phase === "out" ? "page-out" : "page-in"}`}>
-            <aside className="login-sidebar">
-                <div>
-                    <div className="sidebar-brand">
-                        <div className="brand-mark">D</div>
+            <section className="brand-panel">
+                <div className="brand-bg" />
 
-                        <div>
-                            <div className="brand-name">DocuFleet</div>
-                            <div className="brand-sub">Evrak Takip Sistemi</div>
-                        </div>
+                <div className="brand-content">
+                    <div>
+                        <h2>Odak Lojistik</h2>
+                        <p>Evrak takip ve operasyon yönetim paneli</p>
                     </div>
-
-                    <nav className="sidebar-nav">
-                        <div className="nav-item active">
-                            <i className="ti ti-lock" />
-                            <span>Giriş</span>
-                        </div>
-
-                        <div className="nav-item disabled">
-                            <i className="ti ti-file-description" />
-                            <span>Evraklar</span>
-                        </div>
-
-                        <div className="nav-item disabled">
-                            <i className="ti ti-receipt" />
-                            <span>Faturalar</span>
-                        </div>
-
-                        <div className="nav-item disabled">
-                            <i className="ti ti-settings" />
-                            <span>Ayarlar</span>
-                        </div>
-                    </nav>
                 </div>
-
-                <div className="sidebar-footer">
+                <div className="brand-footer">
                     <span className="status-dot" />
                     Sistem aktif
-                    <br />
-                    v2.4.1 · 2026
+                    <span>v2.4.1 · 2026</span>
                 </div>
-            </aside>
+            </section>
 
             <section className="login-main">
                 <div className="login-card">
@@ -247,11 +221,7 @@ function Login() {
                     <div className="login-divider" />
 
                     <div className="login-meta">
-                        <span>
-                            <i className="ti ti-shield-check" />
-                            SSL şifreli bağlantı
-                        </span>
-
+                        <span>SSL şifreli bağlantı</span>
                         <span>Şifrenizi mi unuttunuz?</span>
                     </div>
                 </div>

@@ -3,8 +3,30 @@ import { PDFDocument } from "pdf-lib";
 import "./TeslimEvraklari.css";
 
 function TeslimEvraklari() {
-    const [baslangic, setBaslangic] = useState("2026-05-02");
-    const [bitis, setBitis] = useState("2026-05-02");
+
+    const bugun = new Date();
+
+    const ayinIlkGunu = new Date(
+        bugun.getFullYear(),
+        bugun.getMonth(),
+        1
+    );
+
+    const ayinSonGunu = new Date(
+        bugun.getFullYear(),
+        bugun.getMonth() + 1,
+        0
+    );
+
+    const formatDate = (date) => {
+        const yil = date.getFullYear();
+        const ay = String(date.getMonth() + 1).padStart(2, "0");
+        const gun = String(date.getDate()).padStart(2, "0");
+        return `${yil}-${ay}-${gun}`;
+    };
+
+    const [baslangic, setBaslangic] = useState(formatDate(ayinIlkGunu));
+    const [bitis, setBitis] = useState(formatDate(ayinSonGunu));
     const [evraklar, setEvraklar] = useState([]);
     const [seciliEvrak, setSeciliEvrak] = useState(null);
     const [seciliDosyaIndex, setSeciliDosyaIndex] = useState(0);
@@ -573,7 +595,7 @@ function TeslimEvraklari() {
                                     <strong>{deger(seciliEvrak.trailerPlateNumber)}</strong>
                                 </div>
                                 <div className="info-cell">
-                                    <span className="info-label"><i className="ti ti-calendar" /> Sipariş Tarihi</span>
+                                    <span className="info-label"><i className="ti ti-calendar" /> Sefer Tarihi</span>
                                     <strong>{formatTarih(seciliEvrak.despatchDate)}</strong>
                                 </div>
                                 <div className="info-cell">

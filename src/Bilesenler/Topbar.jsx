@@ -70,7 +70,7 @@ function Topbar() {
                     <i className="ti ti-truck-delivery" />
                 </div>
                 <div className="brand-text">
-                    <span className="brand-name">DocuFleet</span>
+                    <span className="brand-name">Odak Tedarik Zinciri ve Lojistik A.Ş.</span>
                     <span className="brand-sub">Teslim Evrak Takip</span>
                 </div>
             </div>

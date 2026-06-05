@@ -230,6 +230,7 @@
     flex-shrink: 0;
 }
 
+
 /* ─── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 1024px) {
     .topbar {
