@@ -212,7 +212,11 @@ function MultiFilter({ label, options, selected, onChange, placeholder }) {
 // ─── Excel export ─────────────────────────────────────────────────────────────
 async function excelIndir(veriler, selectedProjects) {
     const seciliVeriler = veriler
-        .filter((item) => selectedProjects.includes(item.projeAdi))
+        .filter(
+            (item) =>
+                selectedProjects.includes(item.projeAdi) &&
+                item.faturaBagliMi !== "Bağlı"
+        )
         .sort((a, b) => {
             const seferA = String(a.seferNo || "");
             const seferB = String(b.seferNo || "");
@@ -263,202 +267,8 @@ async function excelIndir(veriler, selectedProjects) {
 
     const bugun = new Date().toLocaleDateString("tr-TR");
 
-    // =========================
-    // DASHBOARD SAYFASI
-    // =========================
-    const ws = wb.addWorksheet("Dashboard", {
-        views: [{ showGridLines: false }],
-    });
 
-    ws.columns = [
-        { width: 4 },
-        { width: 24 },
-        { width: 18 },
-        { width: 18 },
-        { width: 18 },
-        { width: 22 },
-    ];
 
-    ws.mergeCells("B2:F4");
-    const titleCell = ws.getCell("B2");
-    titleCell.value = "ODAK TMS — Fatura & Gider Raporu";
-    titleCell.font = {
-        bold: true,
-        size: 22,
-        color: { argb: COLORS.white },
-    };
-    titleCell.alignment = { vertical: "middle", horizontal: "center" };
-    titleCell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: COLORS.navy },
-    };
-
-    ws.mergeCells("B5:F5");
-    ws.getCell("B5").value = `Rapor Tarihi: ${bugun}`;
-    ws.getCell("B5").font = {
-        size: 11,
-        color: { argb: "64748B" },
-    };
-    ws.getCell("B5").alignment = { horizontal: "center" };
-
-    const cards = [
-        ["B7", "Toplam Kayıt", seciliVeriler.length, COLORS.blue],
-        ["C7", "Toplam Tutar", toplamTutar, COLORS.cyan],
-        ["D7", "Bağlı Fatura", bagliSayi, COLORS.green],
-        ["E7", "Bekleyen", bekleyenSayi, COLORS.red],
-        ["F7", "Bağlılık Oranı", bagliOran, COLORS.orange],
-    ];
-
-    cards.forEach(([cellRef, label, value, color]) => {
-        const cell = ws.getCell(cellRef);
-        cell.value = label;
-        cell.font = {
-            bold: true,
-            color: { argb: COLORS.white },
-            size: 11,
-        };
-        cell.alignment = { horizontal: "center" };
-        cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: color },
-        };
-
-        const valueCell = ws.getCell(
-            cellRef.replace("7", "8")
-        );
-
-        valueCell.value = value;
-        valueCell.font = {
-            bold: true,
-            size: 15,
-            color: { argb: COLORS.text },
-        };
-        valueCell.alignment = { horizontal: "center" };
-        valueCell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: COLORS.grayBg },
-        };
-
-        if (label === "Toplam Tutar") {
-            valueCell.numFmt = '#,##0.00 "₺"';
-        }
-
-        if (label === "Bağlılık Oranı") {
-            valueCell.numFmt = "0.0%";
-        }
-
-        [cell, valueCell].forEach((c) => {
-            c.border = {
-                top: { style: "thin", color: { argb: COLORS.border } },
-                left: { style: "thin", color: { argb: COLORS.border } },
-                bottom: { style: "thin", color: { argb: COLORS.border } },
-                right: { style: "thin", color: { argb: COLORS.border } },
-            };
-        });
-    });
-
-    // =========================
-    // PROJE ÖZETİ
-    // =========================
-    const projeMap = {};
-
-    seciliVeriler.forEach((item) => {
-        const p = item.projeAdi || "Bilinmiyor";
-
-        if (!projeMap[p]) {
-            projeMap[p] = {
-                kayit: 0,
-                tutar: 0,
-                bagli: 0,
-                bekleyen: 0,
-            };
-        }
-
-        projeMap[p].kayit++;
-        projeMap[p].tutar += Number(item.giderTutari) || 0;
-
-        if (item.faturaBagliMi === "Bağlı") projeMap[p].bagli++;
-        else projeMap[p].bekleyen++;
-    });
-
-    ws.getCell("B11").value = "Proje Bazlı Özet";
-    ws.getCell("B11").font = {
-        bold: true,
-        size: 15,
-        color: { argb: COLORS.navy },
-    };
-
-    const summaryHeaderRow = ws.getRow(13);
-    summaryHeaderRow.values = [
-        "",
-        "Proje",
-        "Kayıt",
-        "Toplam Tutar",
-        "Bağlı",
-        "Bekleyen",
-        "Bağlılık Oranı",
-    ];
-
-    summaryHeaderRow.eachCell((cell) => {
-        cell.font = {
-            bold: true,
-            color: { argb: COLORS.white },
-        };
-        cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: COLORS.navy },
-        };
-        cell.alignment = { horizontal: "center" };
-    });
-
-    let rowIndex = 14;
-
-    Object.entries(projeMap)
-        .sort((a, b) => b[1].tutar - a[1].tutar)
-        .forEach(([proje, v]) => {
-            const row = ws.getRow(rowIndex);
-
-            row.values = [
-                "",
-                proje,
-                v.kayit,
-                v.tutar,
-                v.bagli,
-                v.bekleyen,
-                v.kayit ? v.bagli / v.kayit : 0,
-            ];
-
-            row.eachCell((cell) => {
-                cell.border = {
-                    top: { style: "thin", color: { argb: COLORS.border } },
-                    left: { style: "thin", color: { argb: COLORS.border } },
-                    bottom: { style: "thin", color: { argb: COLORS.border } },
-                    right: { style: "thin", color: { argb: COLORS.border } },
-                };
-                cell.alignment = { vertical: "middle" };
-            });
-
-            ws.getCell(`D${rowIndex}`).numFmt = '#,##0.00 "₺"';
-            ws.getCell(`G${rowIndex}`).numFmt = "0.0%";
-
-            if (v.bekleyen > 0) {
-                ws.getCell(`F${rowIndex}`).font = {
-                    bold: true,
-                    color: { argb: COLORS.red },
-                };
-            } else {
-                ws.getCell(`F${rowIndex}`).font = {
-                    bold: true,
-                    color: { argb: COLORS.green },
-                };
-            }
-
-            rowIndex++;
-        });
 
     // =========================
     // DETAY SAYFASI
@@ -613,18 +423,35 @@ function MailModal({ veriler, onClose }) {
             ? Math.round((bagli.length / seciliVeriler.length) * 100)
             : 0;
 
-    // Proje bazlı özet
-    const projeMap = {};
-    seciliVeriler.forEach((item) => {
-        const p = item.projeAdi || "Bilinmiyor";
-        if (!projeMap[p]) projeMap[p] = { kayit: 0, tutar: 0, bagli: 0, bekleyen: 0 };
-        projeMap[p].kayit++;
-        projeMap[p].tutar += Number(item.giderTutari) || 0;
-        if (item.faturaBagliMi === "Bağlı") projeMap[p].bagli++;
-        else projeMap[p].bekleyen++;
-    });
-    const projeSirali = Object.entries(projeMap).sort((a, b) => b[1].tutar - a[1].tutar);
+    // Proje altında tedarikçi bazlı özet
+    const projeTedarikciMap = {};
 
+    seciliVeriler.forEach((item) => {
+        const proje = item.projeAdi || "Bilinmiyor";
+        const tedarikci = item.tedarikciAdi || "Bilinmiyor";
+
+        if (!projeTedarikciMap[proje]) {
+            projeTedarikciMap[proje] = {};
+        }
+
+        if (!projeTedarikciMap[proje][tedarikci]) {
+            projeTedarikciMap[proje][tedarikci] = {
+                kayit: 0,
+                tutar: 0,
+                bagli: 0,
+                bekleyen: 0,
+            };
+        }
+
+        projeTedarikciMap[proje][tedarikci].kayit++;
+        projeTedarikciMap[proje][tedarikci].tutar += Number(item.giderTutari) || 0;
+
+        if (item.faturaBagliMi === "Bağlı") {
+            projeTedarikciMap[proje][tedarikci].bagli++;
+        } else {
+            projeTedarikciMap[proje][tedarikci].bekleyen++;
+        }
+    });
     useEffect(() => {
         mailGruplariniGetir();
     }, []);
@@ -672,26 +499,41 @@ function MailModal({ veriler, onClose }) {
         const barColor = bagliOran === 100 ? "#22c55e" : bagliOran >= 50 ? "#f59e0b" : "#ef4444";
 
         // proje özet satırları
-        const projeRows = projeSirali.map(([proje, v]) => {
-            const oranProje = v.kayit > 0 ? Math.round((v.bagli / v.kayit) * 100) : 0;
-            const rowColor = oranProje === 100 ? "#166534" : oranProje >= 50 ? "#92400e" : "#991b1b";
-            const rowBg = oranProje === 100 ? "#dcfce7" : oranProje >= 50 ? "#fef3c7" : "#fee2e2";
-            return `
-            <tr>
-                <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#0f172a;font-weight:600;">${htmlEscape(proje)}</td>
-                <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#374151;text-align:center;">${v.kayit}</td>
-                <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#374151;text-align:center;">
-                    <span style="color:#166534;font-weight:700;">${v.bagli}</span>
+        const projeRows = Object.entries(projeTedarikciMap)
+            .map(([proje, tedarikciler]) => {
+                const tedarikciRows = Object.entries(tedarikciler)
+                    .sort((a, b) => b[1].tutar - a[1].tutar)
+                    .map(([tedarikci, v]) => `
+                <tr>
+                    <td style="padding:10px 14px 10px 32px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155;">
+                        ↳ ${htmlEscape(tedarikci)}
+                    </td>
+                    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;font-size:13px;color:#374151;">
+                        ${v.kayit}
+                    </td>
+                    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;font-size:13px;color:#166534;font-weight:700;">
+                        ${v.bagli}
+                    </td>
+                    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;font-size:13px;color:${v.bekleyen > 0 ? "#dc2626" : "#16a34a"};font-weight:700;">
+                        ${v.bekleyen}
+                    </td>
+                    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:right;font-size:13px;color:#0f172a;font-weight:800;white-space:nowrap;">
+                        ${tutarFormatla(v.tutar)} TL
+                    </td>
+                </tr>
+            `)
+                    .join("");
+
+                return `
+            <tr style="background:#f8fafc;">
+                <td colspan="5" style="padding:11px 14px;font-size:13px;color:#0f172a;font-weight:900;border-bottom:1px solid #e2e8f0;">
+                    ${htmlEscape(proje)}
                 </td>
-                <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#374151;text-align:center;">
-                    <span style="color:${v.bekleyen > 0 ? "#dc2626" : "#16a34a"};font-weight:700;">${v.bekleyen}</span>
-                </td>
-                <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;">
-                    <span style="display:inline-block;padding:3px 10px;background:${rowBg};color:${rowColor};border-radius:99px;font-size:11px;font-weight:800;">%${oranProje}</span>
-                </td>
-                <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:800;font-size:13px;color:#0f172a;white-space:nowrap;">${tutarFormatla(v.tutar)} TL</td>
-            </tr>`;
-        }).join("");
+            </tr>
+            ${tedarikciRows}
+        `;
+            })
+            .join("");
 
         return `
 <div style="margin:0;padding:0;background:#eef2f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111827;">
@@ -785,29 +627,25 @@ function MailModal({ veriler, onClose }) {
             <!-- PROJE ÖZET TABLOSU -->
             <div style="margin-bottom:8px;">
                 <div style="display:inline-block;background:#f0f9ff;border:1px solid #bfdbfe;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">
-                    📊 Proje Bazlı Özet
+                    📊 Proje Altında Tedarikçi Bazlı Özet
                 </div>
             </div>
 
             <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:24px;">
                 <tr style="background:#f8fafc;">
-                    <th style="text-align:left;padding:9px 14px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;">Proje</th>
+                    <th style="text-align:left;padding:9px 14px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;">Proje / Tedarikçi</th>
                     <th style="text-align:center;padding:9px 14px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;">Kayıt</th>
                     <th style="text-align:center;padding:9px 14px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;">Bağlı</th>
                     <th style="text-align:center;padding:9px 14px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;">Bekleyen</th>
-                    <th style="text-align:center;padding:9px 14px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;">Oran</th>
                     <th style="text-align:right;padding:9px 14px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;">Tutar</th>
                 </tr>
-                ${projeRows || `<tr><td colspan="6" style="padding:20px;text-align:center;color:#9ca3af;">Veri bulunamadı.</td></tr>`}
+                ${projeRows || `<tr><td colspan="5" style="padding:20px;text-align:center;color:#9ca3af;">Veri bulunamadı.</td></tr>`}
                 <!-- toplam -->
                 <tr style="background:#f0f9ff;">
                     <td style="padding:11px 14px;font-size:13px;font-weight:800;color:#1d4ed8;border-top:2px solid #bfdbfe;">Genel Toplam</td>
                     <td style="padding:11px 14px;text-align:center;font-size:13px;font-weight:700;color:#1d4ed8;border-top:2px solid #bfdbfe;">${seciliVeriler.length}</td>
                     <td style="padding:11px 14px;text-align:center;font-size:13px;font-weight:700;color:#166534;border-top:2px solid #bfdbfe;">${bagli.length}</td>
                     <td style="padding:11px 14px;text-align:center;font-size:13px;font-weight:700;color:${bekleyen.length > 0 ? "#dc2626" : "#166534"};border-top:2px solid #bfdbfe;">${bekleyen.length}</td>
-                    <td style="padding:11px 14px;text-align:center;border-top:2px solid #bfdbfe;">
-                        <span style="display:inline-block;padding:3px 10px;background:${bagliOran === 100 ? "#dcfce7" : bagliOran >= 50 ? "#fef3c7" : "#fee2e2"};color:${bagliOran === 100 ? "#166534" : bagliOran >= 50 ? "#92400e" : "#991b1b"};border-radius:99px;font-size:12px;font-weight:800;">%${bagliOran}</span>
-                    </td>
                     <td style="padding:11px 14px;text-align:right;font-size:15px;font-weight:900;color:#1d4ed8;border-top:2px solid #bfdbfe;white-space:nowrap;">${tutarFormatla(toplamTutar)} TL</td>
                 </tr>
             </table>
@@ -860,7 +698,7 @@ function MailModal({ veriler, onClose }) {
             `Fatura Özet Raporu\n\n` +
             `Toplam Kayıt: ${seciliVeriler.length}\n` +
             `Toplam Tutar: ${tutarFormatla(toplamTutar)} TL\n` +
-            `Bağlı: ${bagli.length} | Bekleyen: ${bekleyen.length} | Oran: %${bagliOran}`;
+            `Bağlı: ${bagli.length} | Bekleyen: ${bekleyen.length}`;
 
         try {
             if (navigator.clipboard && window.ClipboardItem) {
@@ -966,7 +804,7 @@ function MailModal({ veriler, onClose }) {
         if (!selectedProjects.length) { setMsg("error", "En az bir proje seçmelisiniz."); return; }
         const mailTo = toEmails.split(",").map((x) => x.trim()).filter(Boolean).join(",");
         const ccList = ccEmails.split(",").map((x) => x.trim()).filter(Boolean).join(",");
-        const plainBody = `Merhaba,\n\nFatura özet raporu hazırlanmıştır. Sefer detayları için ekte Excel dosyasını inceleyiniz.\n\nToplam Kayıt: ${seciliVeriler.length}\nToplam Tutar: ${tutarFormatla(toplamTutar)} TL\nBağlı: ${bagli.length} | Bekleyen: ${bekleyen.length} | Oran: %${bagliOran}\n\nİyi çalışmalar.\nOdak TMS`;
+        const plainBody = `Merhaba,\n\nFatura özet raporu hazırlanmıştır. Sefer detayları için ekte Excel dosyasını inceleyiniz.\n\nToplam Kayıt: ${seciliVeriler.length}\nToplam Tutar: ${tutarFormatla(toplamTutar)} TL\nBağlı: ${bagli.length} | Bekleyen: ${bekleyen.length}\n\nİyi çalışmalar.\nOdak TMS`;
         let mailUrl = `mailto:${encodeURIComponent(mailTo)}`;
         mailUrl += `?subject=${encodeURIComponent(subject || "Fatura Raporu")}`;
 
@@ -1083,7 +921,7 @@ function MailModal({ veriler, onClose }) {
                                 <div>
                                     <p className="mm-excel-info-title">Excel Eki Hakkında</p>
                                     <p className="mm-excel-info-desc">
-                                        Mail gövdesi yalnızca proje bazlı özet içerir.
+                                        Mail gövdesi proje altında tedarikçi bazlı özet içerir.
                                         Sefer detayları (tüm sütunlar) Excel dosyası olarak ayrıca indirilir.
                                     </p>
                                 </div>
@@ -1185,40 +1023,48 @@ function MailModal({ veriler, onClose }) {
                             </div>
                         </div>
 
-                        {/* proje özet tablosu önizleme */}
+                        {/* proje altında tedarikçi bazlı özet önizleme */}
                         <div className="mm-preview-proj-section">
-                            <p className="mm-preview-proj-title">📊 Mail Gövdesindeki Proje Özeti</p>
+                            <p className="mm-preview-proj-title">📊 Mail Gövdesindeki Proje / Tedarikçi Özeti</p>
                             <div className="mm-proj-preview-table">
                                 <div className="mm-ppt-header">
-                                    <span>Proje</span>
+                                    <span>Proje / Tedarikçi</span>
                                     <span>Kayıt</span>
                                     <span>Bağlı</span>
                                     <span>Bekleyen</span>
-                                    <span>Oran</span>
                                     <span>Tutar</span>
                                 </div>
-                                {projeSirali.map(([proje, v]) => {
-                                    const oranP = v.kayit > 0 ? Math.round((v.bagli / v.kayit) * 100) : 0;
-                                    return (
-                                        <div key={proje} className="mm-ppt-row">
+
+                                {Object.entries(projeTedarikciMap).map(([proje, tedarikciler]) => (
+                                    <div key={proje}>
+                                        <div className="mm-ppt-row" style={{ background: "#f8fafc", fontWeight: 800 }}>
                                             <span className="mm-ppt-proje">
                                                 <span className="mm-ppt-avatar" style={{ background: avatarColor(proje) }}>
                                                     {initials(proje)}
                                                 </span>
                                                 {proje}
                                             </span>
-                                            <span>{v.kayit}</span>
-                                            <span className="green">{v.bagli}</span>
-                                            <span className={v.bekleyen > 0 ? "red" : "green"}>{v.bekleyen}</span>
-                                            <span>
-                                                <span className={`oran-pill ${oranP === 100 ? "ok" : oranP >= 50 ? "warn" : "bad"}`}>
-                                                    %{oranP}
-                                                </span>
-                                            </span>
-                                            <span className="tutar">{tutarFormatla(v.tutar)} ₺</span>
+                                            <span></span>
+                                            <span></span>
+                                            <span></span>
+                                            <span></span>
                                         </div>
-                                    );
-                                })}
+
+                                        {Object.entries(tedarikciler)
+                                            .sort((a, b) => b[1].tutar - a[1].tutar)
+                                            .map(([tedarikci, v]) => (
+                                                <div key={`${proje}-${tedarikci}`} className="mm-ppt-row">
+                                                    <span className="mm-ppt-proje" style={{ paddingLeft: 28 }}>
+                                                        ↳ {tedarikci}
+                                                    </span>
+                                                    <span>{v.kayit}</span>
+                                                    <span className="green">{v.bagli}</span>
+                                                    <span className={v.bekleyen > 0 ? "red" : "green"}>{v.bekleyen}</span>
+                                                    <span className="tutar">{tutarFormatla(v.tutar)} ₺</span>
+                                                </div>
+                                            ))}
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
@@ -1228,8 +1074,7 @@ function MailModal({ veriler, onClose }) {
                             <div>
                                 <p className="mm-excel-preview-title">Excel Dosyası İçeriği</p>
                                 <p className="mm-excel-preview-desc">
-                                    <strong>Sayfa 1 — Özet:</strong> Proje bazlı kayıt, tutar, bağlı/bekleyen ve bağlılık oranları<br />
-                                    <strong>Sayfa 2 — Sefer Detayları:</strong> Tüm seferler; tip, sefer no, tarih, durum, tedarikçi, gider hesabı, plaka, araç tipi, tutar, açıklama
+                                    <strong>Tek Sayfa — Sefer Detayları:</strong> Sadece bağlanmamış seferler; tip, sefer no, tarih, durum, tedarikçi, gider hesabı, plaka, proje, araç tipi, tutar, açıklama
                                 </p>
                             </div>
                         </div>
@@ -1647,8 +1492,8 @@ export default function Fatura() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                        {siraliFiltered.map((item, i) => (
-                                            <tr key={i}>
+                                    {siraliFiltered.map((item, i) => (
+                                        <tr key={i}>
                                             <td><span className="tip-badge">{item.tipi || "–"}</span></td>
                                             <td className="mono">{item.seferNo || "–"}</td>
                                             <td>{tarihFormatla(item.seferTarihi)}</td>
