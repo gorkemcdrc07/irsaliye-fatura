@@ -41,6 +41,8 @@ function TeslimEvraklari() {
     const [toplamDosyaSayisi, setToplamDosyaSayisi] = useState(0);
     const [arama, setArama] = useState("");
     const [zipLoading, setZipLoading] = useState(false);
+    const [buyukGorsel, setBuyukGorsel] = useState(null);
+    const [gorselZoom, setGorselZoom] = useState(1);
 
     const istekNo = useRef(0);
 
@@ -349,62 +351,98 @@ function TeslimEvraklari() {
         try {
             const zip = new JSZip();
 
-            for (const [index, evrak] of indirilecekListe.entries()) {
-                const irsaliyeNolari = evrak.files
-                    .filter((f) => f.hasFile)
-                    .map((f) => f.documentReferenceNumber)
-                    .filter(Boolean)
-                    .join("-");
+            for (const evrak of indirilecekListe) {
 
                 const seferNo = evrak.documentNo || "SEFER";
 
-                const klasorAdi = dosyaAdiTemizle(
-                    `${seferNo}-${irsaliyeNolari}`
-                );
+                const klasorAdi = dosyaAdiTemizle(seferNo);
                 const klasor = zip.folder(klasorAdi);
-                const pdf = await PDFDocument.create();
 
-                for (const file of evrak.files.filter((f) => f.hasFile)) {
+                const dosyalar = evrak.files.filter((f) => f.hasFile);
+
+                const birlesikPdf =
+                    dosyalar.length > 1
+                        ? await PDFDocument.create()
+                        : null;
+
+                for (const [index, file] of dosyalar.entries()) {
+
+                    const tekilPdf = await PDFDocument.create();
+
                     const tip = dosyaTipiBul(file.fileContent);
                     const bytes = base64ToUint8Array(file.fileContent);
 
                     if (tip === "pdf") {
                         const kaynakPdf = await PDFDocument.load(bytes);
-                        const sayfalar = await pdf.copyPages(
+
+                        const tekilSayfalar = await tekilPdf.copyPages(
                             kaynakPdf,
                             kaynakPdf.getPageIndices()
                         );
-                        sayfalar.forEach((sayfa) => pdf.addPage(sayfa));
+                        tekilSayfalar.forEach((sayfa) => tekilPdf.addPage(sayfa));
+
+                        if (birlesikPdf) {
+                            const birlesikSayfalar = await birlesikPdf.copyPages(
+                                kaynakPdf,
+                                kaynakPdf.getPageIndices()
+                            );
+                            birlesikSayfalar.forEach((sayfa) => birlesikPdf.addPage(sayfa));
+                        }
                     }
 
                     if (tip === "jpg" || tip === "png") {
                         const image =
                             tip === "jpg"
-                                ? await pdf.embedJpg(bytes)
-                                : await pdf.embedPng(bytes);
+                                ? await tekilPdf.embedJpg(bytes)
+                                : await tekilPdf.embedPng(bytes);
 
-                        const page = pdf.addPage([image.width, image.height]);
-                        page.drawImage(image, {
+                        const tekilPage = tekilPdf.addPage([image.width, image.height]);
+                        tekilPage.drawImage(image, {
                             x: 0,
                             y: 0,
                             width: image.width,
                             height: image.height,
                         });
+
+                        if (birlesikPdf) {
+                            const birlesikImage =
+                                tip === "jpg"
+                                    ? await birlesikPdf.embedJpg(bytes)
+                                    : await birlesikPdf.embedPng(bytes);
+
+                            const birlesikPage = birlesikPdf.addPage([
+                                birlesikImage.width,
+                                birlesikImage.height,
+                            ]);
+
+                            birlesikPage.drawImage(birlesikImage, {
+                                x: 0,
+                                y: 0,
+                                width: birlesikImage.width,
+                                height: birlesikImage.height,
+                            });
+                        }
                     }
+
+                    const tekilPdfBytes = await tekilPdf.save();
+
+                    const dosyaAdi = dosyaAdiTemizle(
+                        file.documentReferenceNumber ||
+                        `IRSALIYE_${index + 1}`
+                    );
+
+                    klasor.file(`${dosyaAdi}.pdf`, tekilPdfBytes);
                 }
 
-                const pdfBytes = await pdf.save();
+                if (birlesikPdf) {
+                    const birlesikPdfBytes = await birlesikPdf.save();
 
-                const dosyaAdi = dosyaAdiTemizle(
-                    irsaliyeNolari || "birlesik-evrak"
-                );
-
-                klasor.file(
-                    `${dosyaAdi}.pdf`,
-                    pdfBytes
-                );
+                    klasor.file(
+                        "BIRLESTIRILMIS_IRSALIYE.pdf",
+                        birlesikPdfBytes
+                    );
+                }
             }
-
             const blob = await zip.generateAsync({ type: "blob" });
 
             blobIndir(blob, "Teslim Evrakları.zip");
@@ -431,7 +469,18 @@ function TeslimEvraklari() {
         if (tip === "jpg" || tip === "png") {
             return (
                 <div className="image-viewer-wrap">
-                    <img className="image-viewer" src={url} alt={`${evrak.documentNo || "teslim-evraki"}-${file.index}`} />
+                    <img
+                        className="image-viewer clickable-image"
+                        src={url}
+                        alt={`${evrak.documentNo || "teslim-evraki"}-${file.index}`}
+                        onClick={() => {
+                            setBuyukGorsel({
+                                url,
+                                title: file.documentReferenceNumber
+                            });
+                            setGorselZoom(1.8);
+                        }}
+                    />
                 </div>
             );
         }
@@ -813,6 +862,49 @@ function TeslimEvraklari() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {buyukGorsel && (
+                <div
+                    className="image-preview-backdrop"
+                    onClick={() => setBuyukGorsel(null)}
+                >
+                    <div
+                        className="image-preview-modal"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="image-preview-header">
+                            <strong>{buyukGorsel.title}</strong>
+
+                            <div className="image-preview-actions">
+                                <button onClick={() => setGorselZoom((z) => Math.max(1, z - 0.3))}>
+                                    -
+                                </button>
+
+                                <button onClick={() => setGorselZoom((z) => z + 0.3)}>
+                                    +
+                                </button>
+
+                                <button onClick={() => {
+                                    setBuyukGorsel(null);
+                                    setGorselZoom(1);
+                                }}>
+                                    <i className="ti ti-x" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="image-preview-body">
+                            <img
+                                src={buyukGorsel.url}
+                                alt={buyukGorsel.title}
+                                style={{
+                                    transform: `scale(${gorselZoom})`,
+                                    transformOrigin: "center center"
+                                }}
+                            />
                         </div>
                     </div>
                 </div>
