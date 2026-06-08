@@ -1,5 +1,6 @@
 ﻿import { useMemo, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
+import JSZip from "jszip";
 import "./TeslimEvraklari.css";
 
 function TeslimEvraklari() {
@@ -39,6 +40,7 @@ function TeslimEvraklari() {
     const [yuklenenDosyaSayisi, setYuklenenDosyaSayisi] = useState(0);
     const [toplamDosyaSayisi, setToplamDosyaSayisi] = useState(0);
     const [arama, setArama] = useState("");
+    const [zipLoading, setZipLoading] = useState(false);
 
     const istekNo = useRef(0);
 
@@ -139,6 +141,26 @@ function TeslimEvraklari() {
         if (tip === "jpg") return "jpg";
         if (tip === "png") return "png";
         return "bin";
+    }
+
+    function dosyaAdiTemizle(value) {
+        return String(value || "dosya")
+            .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+            .trim();
+    }
+
+    function blobIndir(blob, fileName) {
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        URL.revokeObjectURL(url);
     }
 
     function dosyaEtiketiBul(fileContent) {
@@ -312,6 +334,87 @@ function TeslimEvraklari() {
         }
     }
 
+    async function topluZipIndir() {
+        const indirilecekListe = evraklar.filter(
+            (evrak) => evrak.files?.some((f) => f.hasFile)
+        );
+
+        if (!indirilecekListe.length) {
+            setHata("İndirilecek evrak bulunamadı.");
+            return;
+        }
+
+        setZipLoading(true);
+
+        try {
+            const zip = new JSZip();
+
+            for (const [index, evrak] of indirilecekListe.entries()) {
+                const irsaliyeNolari = evrak.files
+                    .filter((f) => f.hasFile)
+                    .map((f) => f.documentReferenceNumber)
+                    .filter(Boolean)
+                    .join("-");
+
+                const seferNo = evrak.documentNo || "SEFER";
+
+                const klasorAdi = dosyaAdiTemizle(
+                    `${seferNo}-${irsaliyeNolari}`
+                );
+                const klasor = zip.folder(klasorAdi);
+                const pdf = await PDFDocument.create();
+
+                for (const file of evrak.files.filter((f) => f.hasFile)) {
+                    const tip = dosyaTipiBul(file.fileContent);
+                    const bytes = base64ToUint8Array(file.fileContent);
+
+                    if (tip === "pdf") {
+                        const kaynakPdf = await PDFDocument.load(bytes);
+                        const sayfalar = await pdf.copyPages(
+                            kaynakPdf,
+                            kaynakPdf.getPageIndices()
+                        );
+                        sayfalar.forEach((sayfa) => pdf.addPage(sayfa));
+                    }
+
+                    if (tip === "jpg" || tip === "png") {
+                        const image =
+                            tip === "jpg"
+                                ? await pdf.embedJpg(bytes)
+                                : await pdf.embedPng(bytes);
+
+                        const page = pdf.addPage([image.width, image.height]);
+                        page.drawImage(image, {
+                            x: 0,
+                            y: 0,
+                            width: image.width,
+                            height: image.height,
+                        });
+                    }
+                }
+
+                const pdfBytes = await pdf.save();
+
+                const dosyaAdi = dosyaAdiTemizle(
+                    irsaliyeNolari || "birlesik-evrak"
+                );
+
+                klasor.file(
+                    `${dosyaAdi}.pdf`,
+                    pdfBytes
+                );
+            }
+
+            const blob = await zip.generateAsync({ type: "blob" });
+
+            blobIndir(blob, "Teslim Evrakları.zip");
+        } catch (err) {
+            console.error(err);
+            setHata("ZIP oluşturulamadı.");
+        } finally {
+            setZipLoading(false);
+        }
+    }
     function deger(value) { return value || "-"; }
 
     function formatTarih(tarih) {
@@ -430,6 +533,19 @@ function TeslimEvraklari() {
                 <button className="fetch-btn" onClick={evraklariGetir} disabled={loading || mergeLoading}>
                     <i className="ti ti-list-search" />
                     Listeyi Getir
+                </button>
+                <button
+                    className="fetch-btn"
+                    onClick={topluZipIndir}
+                    disabled={
+                        loading ||
+                        fileLoading ||
+                        zipLoading ||
+                        evraklar.length === 0
+                    }
+                >
+                    <i className="ti ti-file-zip" />
+                    {zipLoading ? "Hazırlanıyor..." : "Toplu İndir"}
                 </button>
             </section>
 
