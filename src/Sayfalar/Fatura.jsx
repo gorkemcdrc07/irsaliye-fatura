@@ -1205,22 +1205,41 @@ export default function Fatura() {
             }
 
             const liste = Array.isArray(data?.Data) ? data.Data : [];
-            const spotListe = liste.filter((item) => item.SpecialGroupName === "SPOT");
+            const spotListe = liste.filter(
+                (item) =>
+                    item.SpecialGroupName === "SPOT" &&
+                    item.Tipi === "Gider"
+            );
 
             setVeriler(
-                spotListe.map((item) => ({
-                    tipi: item.Tipi,
-                    seferNo: item.TMSDespatchesDocumentNo,
-                    seferTarihi: item.TMSDespatchesDespatchDate,
-                    faturaBagliMi: item.SalesInvoceTmsDespatches ? "Bağlı" : "Bağlanmamış",
-                    tedarikciAdi: item.SupplierName,
-                    giderHesapAdi: item.ServiceExpenseName,
-                    plaka: item.PlateNumber,
-                    projeAdi: item.ProjectName,
-                    aracTipi: item.VehicleWorkingTypeName,
-                    giderTutari: item.ServiceExpenses,
-                    aciklama: item.Description,
-                }))
+                spotListe.map((item) => {
+                    const serviceExpense = String(
+                        item.ServiceExpense || item.ServiceExpenseName || ""
+                    )
+                        .trim()
+                        .toLocaleLowerCase("tr-TR");
+
+                    const giderTutari =
+                        serviceExpense === "masraf" || serviceExpense === "maraf"
+                            ? Number(item.CostExpenses || 0)
+                            : serviceExpense === "hizmet"
+                                ? Number(item.ServiceExpenses || 0)
+                                : 0;
+
+                    return {
+                        tipi: item.Tipi,
+                        seferNo: item.TMSDespatchesDocumentNo,
+                        seferTarihi: item.TMSDespatchesDespatchDate,
+                        faturaBagliMi: item.SalesInvoceTmsDespatches ? "Bağlı" : "Bağlanmamış",
+                        tedarikciAdi: item.SupplierName,
+                        giderHesapAdi: item.ServiceExpenseName || item.ServiceExpense,
+                        plaka: item.PlateNumber,
+                        projeAdi: item.ProjectName,
+                        aracTipi: item.VehicleWorkingTypeName,
+                        giderTutari,
+                        aciklama: item.Description,
+                    };
+                })
             );
         } catch (error) {
             setHata(error.message || "Fatura verileri alınamadı.");
