@@ -391,25 +391,21 @@ async function excelIndir(veriler, selectedProjects) {
 function EmailChipInput({ label, value, onChange, placeholder }) {
     const [input, setInput] = useState("");
 
-    const emails = value
-        ? value.split(",").map(x => x.trim()).filter(Boolean)
-        : [];
-
+    const emails = Array.isArray(value) ? value : [];
     function addEmail() {
         const email = input.trim();
         if (!email) return;
 
         if (!emails.includes(email)) {
-            onChange([...emails, email].join(","));
+            onChange([...emails, email]);
         }
 
         setInput("");
     }
 
     function removeEmail(email) {
-        onChange(emails.filter(x => x !== email).join(","));
+        onChange(emails.filter(x => x !== email));
     }
-
     function handleKeyDown(e) {
         if (e.key === "Enter" || e.key === "," || e.key === ";") {
             e.preventDefault();
@@ -457,8 +453,8 @@ function MailModal({ veriler, onClose }) {
     const [selectedGroupId, setSelectedGroupId] = useState("");
 
     const [groupName, setGroupName] = useState("");
-    const [toEmails, setToEmails] = useState("");
-    const [ccEmails, setCcEmails] = useState("");
+    const [toEmails, setToEmails] = useState([]);
+    const [ccEmails, setCcEmails] = useState([]);
     const [subject, setSubject] = useState("Fatura Raporu");
     const [selectedProjects, setSelectedProjects] = useState([]);
 
@@ -554,8 +550,17 @@ function MailModal({ veriler, onClose }) {
         const group = mailGroups.find((item) => String(item.id) === String(groupId));
         if (!group) return;
         setGroupName(group.group_name || "");
-        setToEmails(group.to_emails || "");
-        setCcEmails(group.cc_emails || "");
+        setToEmails(
+            group.to_emails
+                ? group.to_emails.split(";").map(x => x.trim()).filter(Boolean)
+                : []
+        );
+
+        setCcEmails(
+            group.cc_emails
+                ? group.cc_emails.split(";").map(x => x.trim()).filter(Boolean)
+                : []
+        );
         setSubject(group.subject || "Fatura Raporu");
         setSelectedProjects(group.projects || []);
     }
@@ -855,8 +860,8 @@ function MailModal({ veriler, onClose }) {
 
         const payload = {
             group_name: groupName.trim(),
-            to_emails: toEmails.trim(),
-            cc_emails: ccEmails.trim(),
+            to_emails: toEmails.join(";"),
+            cc_emails: ccEmails.join(";"),
             subject: subject.trim(),
             projects: selectedProjects,
             is_active: true,
@@ -886,29 +891,51 @@ function MailModal({ veriler, onClose }) {
     }
 
     function handleSend() {
-        setError(""); setSuccessMsg("");
-        if (!toEmails.trim()) { setMsg("error", "Kime alanı boş olamaz."); return; }
-        if (!selectedProjects.length) { setMsg("error", "En az bir proje seçmelisiniz."); return; }
-        const mailToList = parseEmails(toEmails);
-        const ccList = parseEmails(ccEmails);
+        setError("");
+        setSuccessMsg("");
 
-        if (mailToList.length === 0) {
+        if (!Array.isArray(toEmails) || toEmails.length === 0) {
             setMsg("error", "Kime alanı boş olamaz.");
             return;
         }
 
-        const mailTo = mailToList.join(",");
-        const cc = ccList.join(",");
-        const plainBody = `Merhaba,\n\nFatura özet raporu hazırlanmıştır. Sefer detayları için ekte Excel dosyasını inceleyiniz.\n\nToplam Kayıt: ${seciliVeriler.length}\nToplam Tutar: ${tutarFormatla(toplamTutar)} TL\nBağlı: ${bagli.length} | Bekleyen: ${bekleyen.length}\n\nİyi çalışmalar.\nOdak TMS`;
-        let mailUrl = `mailto:${mailTo}`;
+        if (!selectedProjects.length) {
+            setMsg("error", "En az bir proje seçmelisiniz.");
+            return;
+        }
+
+        const mailTo = toEmails
+            .map((x) => x.trim())
+            .filter(Boolean)
+            .join(";");
+
+        const cc = Array.isArray(ccEmails)
+            ? ccEmails.map((x) => x.trim()).filter(Boolean).join(";")
+            : "";
+
+        if (!mailTo) {
+            setMsg("error", "Kime alanı boş olamaz.");
+            return;
+        }
+
+        const plainBody =
+            `Merhaba,\n\n` +
+            `Fatura özet raporu hazırlanmıştır. Sefer detayları için ekte Excel dosyasını inceleyiniz.\n\n` +
+            `Toplam Kayıt: ${seciliVeriler.length}\n` +
+            `Toplam Tutar: ${tutarFormatla(toplamTutar)} TL\n` +
+            `Bağlı: ${bagli.length} | Bekleyen: ${bekleyen.length}\n\n` +
+            `İyi çalışmalar.\nOdak TMS`;
+
+        let mailUrl = `mailto:${encodeURIComponent(mailTo)}`;
         mailUrl += `?subject=${encodeURIComponent(subject || "Fatura Raporu")}`;
+        mailUrl += `&body=${encodeURIComponent(plainBody)}`;
 
         if (cc) {
             mailUrl += `&cc=${encodeURIComponent(cc)}`;
         }
+
         window.location.href = mailUrl;
     }
-
     return (
         <div className="modal-backdrop">
             <div className="modal-box mail-modal-v2" role="dialog" aria-modal="true">
@@ -1065,11 +1092,11 @@ function MailModal({ veriler, onClose }) {
                         {/* mail adresi bar */}
                         <div className="mm-preview-bar">
                             <span className="mm-preview-to">
-                                <strong>Kime:</strong> {toEmails || "—"}
+                                <strong>Kime:</strong> {toEmails.length ? toEmails.join("; ") : "—"}
                             </span>
                             {ccEmails && (
                                 <span className="mm-preview-cc">
-                                    <strong>SS:</strong> {ccEmails}
+                                    <strong>SS:</strong> {ccEmails.join("; ")}
                                 </span>
                             )}
                             <span className="mm-preview-subj">
