@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import "./Fatura.css";
 import { supabase } from "../supabaseClient";
 import ExcelJS from "exceljs";
@@ -402,21 +402,28 @@ function MailModal({ veriler, onClose }) {
     const [activePanel, setActivePanel] = useState("ayarlar"); // ayarlar | onizleme
 
 
-    const projectOptions = [
-        ...new Set(veriler.map((item) => item.projeAdi).filter(Boolean)),
-    ].sort();
+    const projectOptions = useMemo(() => {
+        return [...new Set(veriler.map((item) => item.projeAdi).filter(Boolean))].sort();
+    }, [veriler]);
 
-    const seciliVeriler = veriler.filter((item) =>
-        selectedProjects.includes(item.projeAdi)
-    );
+    const seciliVeriler = useMemo(() => {
+        return veriler.filter((item) => selectedProjects.includes(item.projeAdi));
+    }, [veriler, selectedProjects]);
 
-    const toplamTutar = seciliVeriler.reduce(
-        (sum, item) => sum + (Number(item.giderTutari) || 0),
-        0
-    );
+    const toplamTutar = useMemo(() => {
+        return seciliVeriler.reduce(
+            (sum, item) => sum + (Number(item.giderTutari) || 0),
+            0
+        );
+    }, [seciliVeriler]);
 
-    const bagli = seciliVeriler.filter((item) => item.faturaBagliMi === "Bağlı");
-    const bekleyen = seciliVeriler.filter((item) => item.faturaBagliMi !== "Bağlı");
+    const bagli = useMemo(() => {
+        return seciliVeriler.filter((item) => item.faturaBagliMi === "Bağlı");
+    }, [seciliVeriler]);
+
+    const bekleyen = useMemo(() => {
+        return seciliVeriler.filter((item) => item.faturaBagliMi !== "Bağlı");
+    }, [seciliVeriler]);
 
     const bagliOran =
         seciliVeriler.length > 0
@@ -424,34 +431,38 @@ function MailModal({ veriler, onClose }) {
             : 0;
 
     // Proje altında tedarikçi bazlı özet
-    const projeTedarikciMap = {};
+    const projeTedarikciMap = useMemo(() => {
+        const map = {};
 
-    seciliVeriler.forEach((item) => {
-        const proje = item.projeAdi || "Bilinmiyor";
-        const tedarikci = item.tedarikciAdi || "Bilinmiyor";
+        seciliVeriler.forEach((item) => {
+            const proje = item.projeAdi || "Bilinmiyor";
+            const tedarikci = item.tedarikciAdi || "Bilinmiyor";
 
-        if (!projeTedarikciMap[proje]) {
-            projeTedarikciMap[proje] = {};
-        }
+            if (!map[proje]) {
+                map[proje] = {};
+            }
 
-        if (!projeTedarikciMap[proje][tedarikci]) {
-            projeTedarikciMap[proje][tedarikci] = {
-                kayit: 0,
-                tutar: 0,
-                bagli: 0,
-                bekleyen: 0,
-            };
-        }
+            if (!map[proje][tedarikci]) {
+                map[proje][tedarikci] = {
+                    kayit: 0,
+                    tutar: 0,
+                    bagli: 0,
+                    bekleyen: 0,
+                };
+            }
 
-        projeTedarikciMap[proje][tedarikci].kayit++;
-        projeTedarikciMap[proje][tedarikci].tutar += Number(item.giderTutari) || 0;
+            map[proje][tedarikci].kayit++;
+            map[proje][tedarikci].tutar += Number(item.giderTutari) || 0;
 
-        if (item.faturaBagliMi === "Bağlı") {
-            projeTedarikciMap[proje][tedarikci].bagli++;
-        } else {
-            projeTedarikciMap[proje][tedarikci].bekleyen++;
-        }
-    });
+            if (item.faturaBagliMi === "Bağlı") {
+                map[proje][tedarikci].bagli++;
+            } else {
+                map[proje][tedarikci].bekleyen++;
+            }
+        });
+
+        return map;
+    }, [seciliVeriler]);
     useEffect(() => {
         mailGruplariniGetir();
     }, []);
@@ -814,7 +825,7 @@ function MailModal({ veriler, onClose }) {
     }
 
     return (
-        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="modal-backdrop">
             <div className="modal-box mail-modal-v2" role="dialog" aria-modal="true">
 
                 {/* ── header ── */}
@@ -1176,9 +1187,14 @@ export default function Fatura() {
     const [hata, setHata] = useState("");
     const [mailAcik, setMailAcik] = useState(false);
     const [activeTab, setActiveTab] = useState("tablo");
+    const [logBilgisi, setLogBilgisi] = useState(null);
 
     async function faturalariGetir(e) {
         e?.preventDefault();
+
+        const baslamaZamani = performance.now();
+        const islemTarihi = new Date();
+
         setLoading(true);
         setHata("");
         setVeriler([]);
@@ -1210,6 +1226,14 @@ export default function Fatura() {
                     item.SpecialGroupName === "SPOT" &&
                     item.Tipi === "Gider"
             );
+            const bitisZamani = performance.now();
+
+            setLogBilgisi({
+                tarih: islemTarihi.toLocaleDateString("tr-TR"),
+                saat: islemTarihi.toLocaleTimeString("tr-TR"),
+                sure: ((bitisZamani - baslamaZamani) / 1000).toFixed(2),
+                kayitSayisi: spotListe.length
+            });
 
             setVeriler(
                 spotListe.map((item) => {
@@ -1242,6 +1266,15 @@ export default function Fatura() {
                 })
             );
         } catch (error) {
+            const bitisZamani = performance.now();
+
+            setLogBilgisi({
+                tarih: islemTarihi.toLocaleDateString("tr-TR"),
+                saat: islemTarihi.toLocaleTimeString("tr-TR"),
+                sure: ((bitisZamani - baslamaZamani) / 1000).toFixed(2),
+                hata: error.message
+            });
+
             setHata(error.message || "Fatura verileri alınamadı.");
         } finally {
             setLoading(false);
@@ -1252,62 +1285,111 @@ export default function Fatura() {
     const tumProjeler = [...new Set(veriler.map((v) => v.projeAdi).filter(Boolean))];
     const tumDurumlar = ["Bağlı", "Bağlanmamış"];
 
-    const filtered = veriler.filter((item) => {
-        if (tipFilter.length > 0 && !tipFilter.includes(item.tipi)) return false;
+    const filtered = useMemo(() => {
+        return veriler.filter((item) => {
+            if (tipFilter.length > 0 && !tipFilter.includes(item.tipi)) return false;
+            if (projeFilter.length > 0 && !projeFilter.includes(item.projeAdi)) return false;
+            if (durumFilter.length > 0 && !durumFilter.includes(item.faturaBagliMi)) return false;
 
-        if (projeFilter.length > 0 && !projeFilter.includes(item.projeAdi)) return false;
+            if (searchText) {
+                const s = searchText.toLowerCase();
+                return (
+                    (item.seferNo || "").toLowerCase().includes(s) ||
+                    (item.tedarikciAdi || "").toLowerCase().includes(s) ||
+                    (item.plaka || "").toLowerCase().includes(s) ||
+                    (item.projeAdi || "").toLowerCase().includes(s)
+                );
+            }
 
-        if (durumFilter.length > 0 && !durumFilter.includes(item.faturaBagliMi)) return false;
-        if (searchText) {
-            const s = searchText.toLowerCase();
-            return (
-                (item.seferNo || "").toLowerCase().includes(s) ||
-                (item.tedarikciAdi || "").toLowerCase().includes(s) ||
-                (item.plaka || "").toLowerCase().includes(s) ||
-                (item.projeAdi || "").toLowerCase().includes(s)
+            return true;
+        });
+    }, [veriler, tipFilter, projeFilter, durumFilter, searchText]);
+
+    const siraliFiltered = useMemo(() => {
+        return [...filtered].sort((a, b) => {
+            const seferA = String(a.seferNo || "");
+            const seferB = String(b.seferNo || "");
+
+            if (seferA !== seferB) {
+                return seferA.localeCompare(seferB, "tr", { numeric: true });
+            }
+
+            return String(a.tedarikciAdi || "").localeCompare(
+                String(b.tedarikciAdi || ""),
+                "tr"
             );
-        }
-        return true;
-    });
+        });
+    }, [filtered]);
 
-    const siraliFiltered = [...filtered].sort((a, b) => {
-        const seferA = String(a.seferNo || "");
-        const seferB = String(b.seferNo || "");
+    const toplamTutar = useMemo(() => {
+        return filtered.reduce((s, i) => s + (Number(i.giderTutari) || 0), 0);
+    }, [filtered]);
 
-        if (seferA !== seferB) {
-            return seferA.localeCompare(seferB, "tr", { numeric: true });
-        }
+    const bagliSayi = useMemo(() => {
+        return filtered.filter((i) => i.faturaBagliMi === "Bağlı").length;
+    }, [filtered]);
 
-        return String(a.tedarikciAdi || "").localeCompare(
-            String(b.tedarikciAdi || ""),
-            "tr"
-        );
-    });
+    const baglanmamisSayi = useMemo(() => {
+        return filtered.filter((i) => i.faturaBagliMi === "Bağlanmamış").length;
+    }, [filtered]);
 
-    const toplamTutar = filtered.reduce((s, i) => s + (Number(i.giderTutari) || 0), 0);
-    const bagliSayi = filtered.filter((i) => i.faturaBagliMi === "Bağlı").length;
-    const baglanmamisSayi = filtered.filter((i) => i.faturaBagliMi === "Bağlanmamış").length;
-    const bagliOran = filtered.length > 0 ? ((bagliSayi / filtered.length) * 100).toFixed(1) : 0;
+    const bagliOran = useMemo(() => {
+        return filtered.length > 0
+            ? ((bagliSayi / filtered.length) * 100).toFixed(1)
+            : 0;
+    }, [filtered, bagliSayi]);
 
-    const projeMap = {};
-    filtered.forEach((item) => {
-        const p = item.projeAdi || "Bilinmiyor";
-        if (!projeMap[p]) projeMap[p] = { kayit: 0, tutar: 0, bagli: 0, baglanmamis: 0 };
-        projeMap[p].kayit++;
-        projeMap[p].tutar += Number(item.giderTutari) || 0;
-        if (item.faturaBagliMi === "Bağlı") projeMap[p].bagli++;
-        else projeMap[p].baglanmamis++;
-    });
-    const projeler = Object.entries(projeMap).sort((a, b) => b[1].tutar - a[1].tutar);
-    const maxProjeTutar = projeler[0]?.[1]?.tutar || 1;
+    const projeler = useMemo(() => {
+        const projeMap = {};
 
-    const tipMap = {};
-    filtered.forEach((item) => {
-        const t = item.tipi || "Diğer";
-        if (!tipMap[t]) tipMap[t] = { kayit: 0, tutar: 0 };
-        tipMap[t].kayit++;
-        tipMap[t].tutar += Number(item.giderTutari) || 0;
-    });
+        filtered.forEach((item) => {
+            const p = item.projeAdi || "Bilinmiyor";
+
+            if (!projeMap[p]) {
+                projeMap[p] = {
+                    kayit: 0,
+                    tutar: 0,
+                    bagli: 0,
+                    baglanmamis: 0
+                };
+            }
+
+            projeMap[p].kayit++;
+            projeMap[p].tutar += Number(item.giderTutari) || 0;
+
+            if (item.faturaBagliMi === "Bağlı") {
+                projeMap[p].bagli++;
+            } else {
+                projeMap[p].baglanmamis++;
+            }
+        });
+
+        return Object.entries(projeMap).sort((a, b) => b[1].tutar - a[1].tutar);
+    }, [filtered]);
+
+    const maxProjeTutar = useMemo(() => {
+        return projeler[0]?.[1]?.tutar || 1;
+    }, [projeler]);
+
+    const tipMap = useMemo(() => {
+        const map = {};
+
+        filtered.forEach((item) => {
+            const t = item.tipi || "Diğer";
+
+            if (!map[t]) {
+                map[t] = {
+                    kayit: 0,
+                    tutar: 0
+                };
+            }
+
+            map[t].kayit++;
+            map[t].tutar += Number(item.giderTutari) || 0;
+        });
+
+        return map;
+    }, [filtered]);
 
     return (
         <main className="fatura-page">
@@ -1322,6 +1404,24 @@ export default function Fatura() {
                     </div>
                 </div>
                 <div className="header-actions">
+                    {logBilgisi && (
+                        <div className="header-meta">
+                            <div className="header-meta-box">
+                                <span>Son Veri Çekme</span>
+                                <strong>{logBilgisi.tarih} - {logBilgisi.saat}</strong>
+                            </div>
+
+                            <div className="header-meta-box">
+                                <span>Süre</span>
+                                <strong>{logBilgisi.sure} sn</strong>
+                            </div>
+
+                            <div className="header-meta-box">
+                                <span>Kayıt</span>
+                                <strong>{logBilgisi.kayitSayisi ?? "-"}</strong>
+                            </div>
+                        </div>
+                    )}
                     <button
                         className="btn-mail"
                         onClick={() => setMailAcik(true)}

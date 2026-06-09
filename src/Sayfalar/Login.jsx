@@ -96,7 +96,7 @@ function Login() {
         try {
             const { data: user, error } = await supabase
                 .from("users")
-                .select("id, user_name, password, customer_id, is_active, permissions, role")
+                .select("id, user_name, password, customer_id, is_active, permissions, role, customer_order_no_rule")
                 .eq("user_name", kullaniciAdi.trim())
                 .eq("password", sifre.trim())
                 .eq("is_active", true)
@@ -116,6 +116,10 @@ function Login() {
             localStorage.setItem("customerId", user.customer_id || "");
             localStorage.setItem("permissions", JSON.stringify(user.permissions || []));
             localStorage.setItem("role", user.role || "kullanici");
+            localStorage.setItem(
+                "customerOrderNoRule",
+                String(user.customer_order_no_rule === true)
+            );
             localStorage.setItem("token", "supabase-login");
             localStorage.setItem("tokenTime", Date.now().toString());
 

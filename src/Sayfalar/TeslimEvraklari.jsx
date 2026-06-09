@@ -43,6 +43,9 @@ function TeslimEvraklari() {
     const [zipLoading, setZipLoading] = useState(false);
     const [buyukGorsel, setBuyukGorsel] = useState(null);
     const [gorselZoom, setGorselZoom] = useState(1);
+    const [logBilgisi, setLogBilgisi] = useState(null);
+    const [musteriSiparisNoKurali, setMusteriSiparisNoKurali] = useState(false);
+
 
     const istekNo = useRef(0);
 
@@ -210,9 +213,19 @@ function TeslimEvraklari() {
     }
 
     async function evraklariGetir() {
+
+        const baslamaZamani = performance.now();
+        const islemTarihi = new Date();
+
         const aktifIstek = Date.now();
         istekNo.current = aktifIstek;
         const customerId = localStorage.getItem("customerId");
+        const permissions = JSON.parse(localStorage.getItem("permissions") || "[]");
+
+        const customerOrderNoRule =
+            localStorage.getItem("customerOrderNoRule") === "true" ||
+            permissions.includes("musteriSiparisNo");
+        setMusteriSiparisNoKurali(customerOrderNoRule);
         if (!customerId) {
             setHata("Müşteri bilgisi bulunamadı. Lütfen tekrar giriş yapın.");
             setLoading(false);
@@ -239,6 +252,14 @@ function TeslimEvraklari() {
                 driverId: 0,
             });
             const liste = Array.isArray(data) ? data : data?.data || data?.items || data?.result || [];
+            const bitisZamani = performance.now();
+
+            setLogBilgisi({
+                tarih: islemTarihi.toLocaleDateString("tr-TR"),
+                saat: islemTarihi.toLocaleTimeString("tr-TR"),
+                sure: ((bitisZamani - baslamaZamani) / 1000).toFixed(2),
+                kayitSayisi: liste.length
+            });
             if (istekNo.current !== aktifIstek) return;
             const temizListe = liste.map((evrak) => ({
                 ...evrak,
@@ -252,6 +273,14 @@ function TeslimEvraklari() {
             setIlkYuklemeTamamlandi(true);
             await dosyalariGetir(temizListe, aktifIstek);
         } catch (error) {
+            const bitisZamani = performance.now();
+
+            setLogBilgisi({
+                tarih: islemTarihi.toLocaleDateString("tr-TR"),
+                saat: islemTarihi.toLocaleTimeString("tr-TR"),
+                sure: ((bitisZamani - baslamaZamani) / 1000).toFixed(2),
+                hata: error.message
+            });
             if (istekNo.current !== aktifIstek) return;
             setHata(error.message || "Evrak verileri çekilemedi.");
             setLoading(false);
@@ -354,10 +383,22 @@ function TeslimEvraklari() {
             for (const evrak of indirilecekListe) {
 
                 const seferNo = evrak.documentNo || "SEFER";
+                const musteriSiparisNo = evrak.customerOrderNumber;
+                const tarih = formatTarih(evrak.despatchDate);
 
-                const klasorAdi = dosyaAdiTemizle(seferNo);
+                const permissions = JSON.parse(localStorage.getItem("permissions") || "[]");
+
+                const customerOrderNoRule =
+                    localStorage.getItem("customerOrderNoRule") === "true" ||
+                    permissions.includes("musteriSiparisNo");
+
+                const klasorKaynak =
+                    customerOrderNoRule && musteriSiparisNo
+                        ? `${musteriSiparisNo}_${tarih}`
+                        : `${seferNo}_${tarih}`;
+
+                const klasorAdi = dosyaAdiTemizle(klasorKaynak);
                 const klasor = zip.folder(klasorAdi);
-
                 const dosyalar = evrak.files.filter((f) => f.hasFile);
 
                 const birlesikPdf =
@@ -551,9 +592,25 @@ function TeslimEvraklari() {
                         <p>Sefer bazlı evrak görüntüleme ve toplu PDF indirme</p>
                     </div>
                 </div>
-                <div className="evrak-count-badge">
-                    <span className="count-num">{evraklar.length}</span>
-                    <span className="count-lbl">evrak</span>
+                <div className="page-header-stats">
+                    {logBilgisi && (
+                        <>
+                            <div className="header-log-box">
+                                <span>Son Veri Çekme</span>
+                                <strong>{logBilgisi.tarih} - {logBilgisi.saat}</strong>
+                            </div>
+
+                            <div className="header-log-box">
+                                <span>Süre</span>
+                                <strong>{logBilgisi.sure} sn</strong>
+                            </div>
+                        </>
+                    )}
+
+                    <div className="evrak-count-badge">
+                        <span className="count-num">{evraklar.length}</span>
+                        <span className="count-lbl">evrak</span>
+                    </div>
                 </div>
             </header>
 
@@ -605,7 +662,6 @@ function TeslimEvraklari() {
                     {hata}
                 </div>
             )}
-
             {/* ── Empty states ── */}
             {!loading && ilkYuklemeTamamlandi && evraklar.length === 0 && (
                 <div className="empty-state">
@@ -638,7 +694,11 @@ function TeslimEvraklari() {
                                 <tr>
                                     <th>Sefer / Nokta</th>
                                     <th>Araç / Treyler</th>
-                                    <th>Sürücü / Sipariş</th>
+                                    <th>
+                                        {musteriSiparisNoKurali
+                                            ? "Sürücü / Müşteri Sipariş No"
+                                            : "Sürücü"}
+                                    </th>
                                     <th>Tarih</th>
                                     <th>Sefer Durumu</th>
                                     <th>Evrak Durumu</th>
@@ -667,7 +727,15 @@ function TeslimEvraklari() {
                                             </td>
                                             <td>
                                                 <span className="cell-primary">{deger(evrak.fullName)}</span>
-                                                <span className="cell-secondary">{deger(evrak.customerOrderNumber)}</span>
+
+                                                {(
+                                                    musteriSiparisNoKurali ||
+                                                    JSON.parse(localStorage.getItem("permissions") || "[]").includes("musteriSiparisNo")
+                                                ) && (
+                                                        <span className="cell-secondary">
+                                                            {deger(evrak.customerOrderNumber)}
+                                                        </span>
+                                                    )}
                                             </td>
                                             <td>
                                                 <span className="cell-date">{formatTarih(evrak.despatchDate)}</span>

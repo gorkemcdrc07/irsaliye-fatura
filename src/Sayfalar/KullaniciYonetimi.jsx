@@ -5,10 +5,7 @@ import "./KullaniciYonetimi.css";
 const TUM_YETKILER = [
     { key: "evrak", label: "Teslim Evrakları", icon: "ti-file-description" },
     { key: "fatura", label: "Faturalar", icon: "ti-receipt" },
-    { key: "dashboard", label: "Dashboard", icon: "ti-layout-dashboard" },
-    { key: "rapor", label: "Raporlar", icon: "ti-chart-bar" },
 ];
-
 function bosForm() {
     return { userName: "", password: "", customerId: "", permissions: [] };
 }
@@ -112,7 +109,7 @@ function KullaniciYonetimi() {
         setTableLoading(true);
         const { data, error } = await supabase
             .from("users")
-            .select("id, user_name, customer_id, is_active, permissions, created_at")
+            .select("id, user_name, customer_id, is_active, permissions, customer_order_no_rule, created_at")
             .order("id", { ascending: false });
         if (!error) setUsers(data || []);
         setTableLoading(false);
@@ -154,6 +151,7 @@ function KullaniciYonetimi() {
             customer_id: form.customerId.trim(),
             is_active: true,
             permissions: form.permissions,
+            customer_order_no_rule: form.permissions.includes("musteriSiparisNo"),
         });
         setLoading(false);
         if (error) { setHata(error.message || "Kullanıcı eklenemedi."); return; }
@@ -177,6 +175,7 @@ function KullaniciYonetimi() {
             user_name: form.userName.trim(),
             customer_id: form.customerId.trim(),
             permissions: form.permissions,
+            customer_order_no_rule: form.permissions.includes("musteriSiparisNo"),
         };
         if (form.password.trim()) guncel.password = form.password.trim();
 
@@ -362,6 +361,7 @@ function KullaniciYonetimi() {
                                     <th>Kullanıcı</th>
                                     <th>Customer ID</th>
                                     <th>Yetkiler</th>
+                                    <th>Müşteri Sipariş No</th>
                                     <th>Kayıt Tarihi</th>
                                     <th>Durum</th>
                                     <th className="col-actions">İşlemler</th>
@@ -397,6 +397,13 @@ function KullaniciYonetimi() {
                                                     : <span className="no-perm">Yok</span>}
                                             </div>
                                         </td>
+                                        <td>
+                                            <span className={`status-badge ${u.customer_order_no_rule ? "active" : "passive"}`}>
+                                                <span className="status-dot" />
+                                                {u.customer_order_no_rule ? "Aktif" : "Pasif"}
+                                            </span>
+                                        </td>
+
                                         <td><span className="cell-date">{formatTarih(u.created_at)}</span></td>
                                         <td>
                                             <span className={`status-badge ${u.is_active ? "active" : "passive"}`}>
@@ -477,6 +484,29 @@ function KullaniciYonetimi() {
                             value={form.permissions}
                             onChange={(p) => formDegistir("permissions", p)}
                         />
+                    </div>
+                    <div className="form-section">
+                        <label className="section-label">
+                            <i className="ti ti-list-numbers" /> Kurallar
+                        </label>
+
+                        <label className="rule-check">
+                            <input
+                                type="checkbox"
+                                checked={form.permissions.includes("musteriSiparisNo")}
+                                onChange={(e) => {
+                                    const aktif = e.target.checked;
+
+                                    formDegistir(
+                                        "permissions",
+                                        aktif
+                                            ? [...form.permissions, "musteriSiparisNo"]
+                                            : form.permissions.filter((p) => p !== "musteriSiparisNo")
+                                    );
+                                }}
+                            />
+                            <span>Müşteri Sipariş No kuralı aktif olsun</span>
+                        </label>
                     </div>
 
                     <div className="modal-footer">

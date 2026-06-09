@@ -1752,6 +1752,37 @@ tbody tr {
 	color: #2563eb;
 	font-weight: 700;
 }
+.header-meta {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.header-meta-box {
+	min-width: 110px;
+	padding: 8px 12px;
+	border-radius: 12px;
+	background: #ffffff;
+	border: 1px solid var(--border);
+}
+
+	.header-meta-box span {
+		display: block;
+		font-size: 11px;
+		color: var(--text-3);
+	}
+
+	.header-meta-box strong {
+		display: block;
+		margin-top: 2px;
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--text-1);
+	}
+
+.header-actions {
+	align-items: center;
+}
 
 /* ── responsive ── */
 @media (max-width: 1200px) {
