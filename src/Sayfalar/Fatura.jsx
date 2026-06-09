@@ -593,8 +593,16 @@ function MailModal({ veriler, onClose }) {
         const projeRows = Object.entries(projeTedarikciMap)
             .map(([proje, tedarikciler]) => {
                 const tedarikciRows = Object.entries(tedarikciler)
-                    .filter(([_, v]) => v.bekleyen > 0) // sadece bağlı olmayanlar
-                    .sort((a, b) => b.bekleyenTutar - a.bekleyenTutar)
+                    .filter(([_, v]) => v.bekleyen > 0)
+                    .sort((a, b) => {
+                        // Önce bekleyen adedi büyükten küçüğe
+                        if (b[1].bekleyen !== a[1].bekleyen) {
+                            return b[1].bekleyen - a[1].bekleyen;
+                        }
+
+                        // Eşitse bekleyen tutarına göre
+                        return b[1].bekleyenTutar - a[1].bekleyenTutar;
+                    })
                     .map(([tedarikci, v]) => `
                     <tr>
                     <td style="padding:10px 14px 10px 32px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155;">
@@ -852,40 +860,73 @@ function MailModal({ veriler, onClose }) {
         setMsg("success", "✓ Modern Excel raporu indirildi.");
     }
     async function grupKaydet() {
-        setError(""); setSuccessMsg("");
-        if (!groupName.trim()) { setMsg("error", "Grup adı zorunludur."); return; }
-        if (!toEmails.trim()) { setMsg("error", "Kime alanı zorunludur."); return; }
-        if (!subject.trim()) { setMsg("error", "Konu alanı zorunludur."); return; }
-        if (!selectedProjects.length) { setMsg("error", "En az bir proje seçmelisiniz."); return; }
+        setError("");
+        setSuccessMsg("");
+
+        if (!groupName.trim()) {
+            setMsg("error", "Grup adı zorunludur.");
+            return;
+        }
+
+        if (!Array.isArray(toEmails) || toEmails.length === 0) {
+            setMsg("error", "Kime alanı zorunludur.");
+            return;
+        }
+
+        if (!subject.trim()) {
+            setMsg("error", "Konu alanı zorunludur.");
+            return;
+        }
+
+        if (!selectedProjects.length) {
+            setMsg("error", "En az bir proje seçmelisiniz.");
+            return;
+        }
 
         const payload = {
             group_name: groupName.trim(),
             to_emails: toEmails.join(";"),
-            cc_emails: ccEmails.join(";"),
+            cc_emails: Array.isArray(ccEmails)
+                ? ccEmails.join(";")
+                : "",
             subject: subject.trim(),
             projects: selectedProjects,
             is_active: true,
         };
 
         let result;
+
         if (selectedGroupId) {
-            result = await supabase.from("mail_groups").update(payload).eq("id", selectedGroupId);
+            result = await supabase
+                .from("mail_groups")
+                .update(payload)
+                .eq("id", selectedGroupId);
         } else {
-            result = await supabase.from("mail_groups").insert(payload);
+            result = await supabase
+                .from("mail_groups")
+                .insert(payload);
         }
 
-        if (result.error) { setMsg("error", "Mail grubu kaydedilemedi."); return; }
+        if (result.error) {
+            setMsg("error", "Mail grubu kaydedilemedi.");
+            return;
+        }
+
         await mailGruplariniGetir();
+
         setMsg("success", "✓ Mail grubu kaydedildi.");
     }
-
     async function grupSil() {
         if (!selectedGroupId) return;
         if (!window.confirm("Bu mail grubunu silmek istediğinize emin misiniz?")) return;
         const { error } = await supabase.from("mail_groups").update({ is_active: false }).eq("id", selectedGroupId);
         if (error) { setMsg("error", "Mail grubu silinemedi."); return; }
-        setSelectedGroupId(""); setGroupName(""); setToEmails(""); setCcEmails("");
-        setSubject("Fatura Raporu"); setSelectedProjects([]);
+        setSelectedGroupId("");
+        setGroupName("");
+        setToEmails([]);
+        setCcEmails([]);
+        setSubject("Fatura Raporu");
+        setSelectedProjects([]);
         await mailGruplariniGetir();
         setMsg("success", "✓ Mail grubu silindi.");
     }
