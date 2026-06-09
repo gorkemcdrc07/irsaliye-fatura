@@ -1784,6 +1784,47 @@ tbody tr {
 	align-items: center;
 }
 
+.email-chip-box {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	min-height: 42px;
+	padding: 7px 10px;
+	border: 1px solid #cbd5e1;
+	border-radius: 10px;
+	background: #fff;
+}
+
+	.email-chip-box input {
+		border: none;
+		outline: none;
+		flex: 1;
+		min-width: 160px;
+		font-size: 14px;
+	}
+
+.email-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	background: #e0f2fe;
+	color: #075985;
+	border: 1px solid #bae6fd;
+	border-radius: 999px;
+	padding: 5px 9px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+	.email-chip button {
+		border: none;
+		background: transparent;
+		color: #075985;
+		cursor: pointer;
+		font-size: 15px;
+		line-height: 1;
+	}
+
 /* ── responsive ── */
 @media (max-width: 1200px) {
 	.stat-grid {

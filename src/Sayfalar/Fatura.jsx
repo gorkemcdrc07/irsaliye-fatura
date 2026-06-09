@@ -387,6 +387,70 @@ async function excelIndir(veriler, selectedProjects) {
     const dosyaAdi = `fatura_raporu_${bugun.replaceAll(".", "_")}.xlsx`;
     saveAs(blob, dosyaAdi);
 }
+
+function EmailChipInput({ label, value, onChange, placeholder }) {
+    const [input, setInput] = useState("");
+
+    const emails = value
+        ? value.split(",").map(x => x.trim()).filter(Boolean)
+        : [];
+
+    function addEmail() {
+        const email = input.trim();
+        if (!email) return;
+
+        if (!emails.includes(email)) {
+            onChange([...emails, email].join(","));
+        }
+
+        setInput("");
+    }
+
+    function removeEmail(email) {
+        onChange(emails.filter(x => x !== email).join(","));
+    }
+
+    function handleKeyDown(e) {
+        if (e.key === "Enter" || e.key === "," || e.key === ";") {
+            e.preventDefault();
+            addEmail();
+        }
+
+        if (e.key === "Backspace" && !input && emails.length > 0) {
+            removeEmail(emails[emails.length - 1]);
+        }
+    }
+
+    return (
+        <div className="mm-field">
+            <label>{label}</label>
+
+            <div className="email-chip-box">
+                {emails.map((email) => (
+                    <span key={email} className="email-chip">
+                        {email}
+                        <button type="button" onClick={() => removeEmail(email)}>
+                            ×
+                        </button>
+                    </span>
+                ))}
+
+                <input
+                    type="text"
+                    value={input}
+                    placeholder={emails.length === 0 ? placeholder : ""}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={addEmail}
+                />
+            </div>
+
+            <span className="mm-field-hint">
+                Mail yazıp Enter’a basın
+            </span>
+        </div>
+    );
+}
 // ─── mail modal ────────────────────────────────────────────────────────────────
 function MailModal({ veriler, onClose }) {
     const [mailGroups, setMailGroups] = useState([]);
@@ -917,28 +981,19 @@ function MailModal({ veriler, onClose }) {
                                 />
                             </div>
 
-                            <div className="mm-field">
-                                <label>Kime</label>
-                                <input
-                                    type="text"
-                                    placeholder="gorkem@firma.com, ali@firma.com"
-                                    value={toEmails}
-                                    onChange={(e) => setToEmails(e.target.value)}
-                                />
-                                <span className="mm-field-hint">
-                                    Birden fazla adresi virgül, noktalı virgül veya alt satır ile ayırın
-                                </span>
-                            </div>
+                            <EmailChipInput
+                                label="Kime"
+                                value={toEmails}
+                                onChange={setToEmails}
+                                placeholder="mail@firma.com"
+                            />
 
-                            <div className="mm-field">
-                                <label>SS (CC)</label>
-                                <input
-                                    type="text"
-                                    placeholder="yagiz@firma.com"
-                                    value={ccEmails}
-                                    onChange={(e) => setCcEmails(e.target.value)}
-                                />
-                            </div>
+                            <EmailChipInput
+                                label="SS (CC)"
+                                value={ccEmails}
+                                onChange={setCcEmails}
+                                placeholder="cc@firma.com"
+                            />
 
                             <div className="mm-field">
                                 <label>Konu</label>
