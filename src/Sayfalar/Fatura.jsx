@@ -291,8 +291,10 @@ async function excelIndir(veriler, selectedProjects) {
         { header: "Açıklama", key: "aciklama", width: 40 },
     ];
 
-    seciliVeriler.forEach((item) => {
-        detay.addRow({
+    seciliVeriler
+        .filter(item => item.faturaBagliMi !== "Bağlı")
+        .forEach((item) => {
+            detay.addRow({
             tipi: item.tipi || "",
             seferNo: item.seferNo || "",
             seferTarihi: item.seferTarihi
@@ -448,6 +450,7 @@ function MailModal({ veriler, onClose }) {
                     tutar: 0,
                     bagli: 0,
                     bekleyen: 0,
+                    bekleyenTutar: 0,
                 };
             }
 
@@ -458,6 +461,7 @@ function MailModal({ veriler, onClose }) {
                 map[proje][tedarikci].bagli++;
             } else {
                 map[proje][tedarikci].bekleyen++;
+                map[proje][tedarikci].bekleyenTutar += Number(item.giderTutari) || 0;
             }
         });
 
@@ -501,6 +505,13 @@ function MailModal({ veriler, onClose }) {
             .replaceAll("'", "&#039;");
     }
 
+    function parseEmails(value = "") {
+        return value
+            .split(/[,\n;]/)
+            .map((x) => x.trim())
+            .filter(Boolean);
+    }
+
     // ── HTML mail: SADECE ÖZET (sefer detayı yok, excel'de) ──────────────────
     function ozetHtmlOlustur() {
         const bugun = new Date().toLocaleDateString("tr-TR", {
@@ -513,9 +524,10 @@ function MailModal({ veriler, onClose }) {
         const projeRows = Object.entries(projeTedarikciMap)
             .map(([proje, tedarikciler]) => {
                 const tedarikciRows = Object.entries(tedarikciler)
-                    .sort((a, b) => b[1].tutar - a[1].tutar)
+                    .filter(([_, v]) => v.bekleyen > 0) // sadece bağlı olmayanlar
+                    .sort((a, b) => b.bekleyenTutar - a.bekleyenTutar)
                     .map(([tedarikci, v]) => `
-                <tr>
+                    <tr>
                     <td style="padding:10px 14px 10px 32px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155;">
                         ↳ ${htmlEscape(tedarikci)}
                     </td>
@@ -813,14 +825,23 @@ function MailModal({ veriler, onClose }) {
         setError(""); setSuccessMsg("");
         if (!toEmails.trim()) { setMsg("error", "Kime alanı boş olamaz."); return; }
         if (!selectedProjects.length) { setMsg("error", "En az bir proje seçmelisiniz."); return; }
-        const mailTo = toEmails.split(",").map((x) => x.trim()).filter(Boolean).join(",");
-        const ccList = ccEmails.split(",").map((x) => x.trim()).filter(Boolean).join(",");
+        const mailToList = parseEmails(toEmails);
+        const ccList = parseEmails(ccEmails);
+
+        if (mailToList.length === 0) {
+            setMsg("error", "Kime alanı boş olamaz.");
+            return;
+        }
+
+        const mailTo = mailToList.join(",");
+        const cc = ccList.join(",");
         const plainBody = `Merhaba,\n\nFatura özet raporu hazırlanmıştır. Sefer detayları için ekte Excel dosyasını inceleyiniz.\n\nToplam Kayıt: ${seciliVeriler.length}\nToplam Tutar: ${tutarFormatla(toplamTutar)} TL\nBağlı: ${bagli.length} | Bekleyen: ${bekleyen.length}\n\nİyi çalışmalar.\nOdak TMS`;
-        let mailUrl = `mailto:${encodeURIComponent(mailTo)}`;
+        let mailUrl = `mailto:${mailTo}`;
         mailUrl += `?subject=${encodeURIComponent(subject || "Fatura Raporu")}`;
 
-        if (ccList)
-            mailUrl += `&cc=${encodeURIComponent(ccList)}`;
+        if (cc) {
+            mailUrl += `&cc=${encodeURIComponent(cc)}`;
+        }
         window.location.href = mailUrl;
     }
 
@@ -904,7 +925,9 @@ function MailModal({ veriler, onClose }) {
                                     value={toEmails}
                                     onChange={(e) => setToEmails(e.target.value)}
                                 />
-                                <span className="mm-field-hint">Birden fazla adres virgülle ayırın</span>
+                                <span className="mm-field-hint">
+                                    Birden fazla adresi virgül, noktalı virgül veya alt satır ile ayırın
+                                </span>
                             </div>
 
                             <div className="mm-field">
