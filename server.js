@@ -13,6 +13,7 @@ app.use(
             "http://localhost:5173",
             "http://localhost:3000",
             "https://irsaliye-fatura.vercel.app",
+            "https://odaklojistik.vercel.app",
         ],
         credentials: true,
     })
@@ -38,6 +39,60 @@ app.get("/health", (req, res) => {
         ok: true,
         uptime: process.uptime(),
     });
+});
+
+/* TMS PROXY - ORDERS */
+app.post("/api/proxy/tmsorders", async (req, res) => {
+    try {
+        const tmsRes = await fetch("https://api.odaklojistik.com.tr/api/tmsorders/getall", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: req.headers.authorization || "",
+            },
+            body: JSON.stringify(req.body),
+        });
+
+        const text = await tmsRes.text();
+
+        res.status(tmsRes.status);
+        res.setHeader("Content-Type", tmsRes.headers.get("content-type") || "application/json");
+        res.send(text);
+    } catch (err) {
+        console.error("TMS ORDERS PROXY HATA:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message,
+        });
+    }
+});
+
+/* TMS PROXY - DESPATCHES */
+app.post("/api/proxy/tmsdespatches", async (req, res) => {
+    try {
+        const tmsRes = await fetch("https://api.odaklojistik.com.tr/api/tmsdespatches/getall", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: req.headers.authorization || "",
+            },
+            body: JSON.stringify(req.body),
+        });
+
+        const text = await tmsRes.text();
+
+        res.status(tmsRes.status);
+        res.setHeader("Content-Type", tmsRes.headers.get("content-type") || "application/json");
+        res.send(text);
+    } catch (err) {
+        console.error("TMS DESPATCH PROXY HATA:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message,
+        });
+    }
 });
 
 /* MAIL ROUTES */
