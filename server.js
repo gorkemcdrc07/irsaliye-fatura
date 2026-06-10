@@ -7,17 +7,29 @@ import { otomatikMailSchedulerBaslat } from "./src/services/autoMailScheduler.js
 
 const app = express();
 
-app.use(
-    cors({
-        origin: [
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "https://irsaliye-fatura.vercel.app",
-            "https://odaklojistik.vercel.app",
-        ],
-        credentials: true,
-    })
-);
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://irsaliye-fatura.vercel.app",
+    "https://odaklojistik.vercel.app",
+];
+
+const corsOptions = {
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        console.error(`CORS engellendi: ${origin}`);
+        return callback(new Error(`CORS engellendi: ${origin}`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -44,20 +56,26 @@ app.get("/health", (req, res) => {
 /* TMS PROXY - ORDERS */
 app.post("/api/proxy/tmsorders", async (req, res) => {
     try {
-        const tmsRes = await fetch("https://api.odaklojistik.com.tr/api/tmsorders/getall", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                Authorization: req.headers.authorization || "",
-            },
-            body: JSON.stringify(req.body),
-        });
+        const tmsRes = await fetch(
+            "https://api.odaklojistik.com.tr/api/tmsorders/getall",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    Authorization: req.headers.authorization || "",
+                },
+                body: JSON.stringify(req.body),
+            }
+        );
 
         const text = await tmsRes.text();
 
         res.status(tmsRes.status);
-        res.setHeader("Content-Type", tmsRes.headers.get("content-type") || "application/json");
+        res.setHeader(
+            "Content-Type",
+            tmsRes.headers.get("content-type") || "application/json"
+        );
         res.send(text);
     } catch (err) {
         console.error("TMS ORDERS PROXY HATA:", err);
@@ -71,20 +89,26 @@ app.post("/api/proxy/tmsorders", async (req, res) => {
 /* TMS PROXY - DESPATCHES */
 app.post("/api/proxy/tmsdespatches", async (req, res) => {
     try {
-        const tmsRes = await fetch("https://api.odaklojistik.com.tr/api/tmsdespatches/getall", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                Authorization: req.headers.authorization || "",
-            },
-            body: JSON.stringify(req.body),
-        });
+        const tmsRes = await fetch(
+            "https://api.odaklojistik.com.tr/api/tmsdespatches/getall",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    Authorization: req.headers.authorization || "",
+                },
+                body: JSON.stringify(req.body),
+            }
+        );
 
         const text = await tmsRes.text();
 
         res.status(tmsRes.status);
-        res.setHeader("Content-Type", tmsRes.headers.get("content-type") || "application/json");
+        res.setHeader(
+            "Content-Type",
+            tmsRes.headers.get("content-type") || "application/json"
+        );
         res.send(text);
     } catch (err) {
         console.error("TMS DESPATCH PROXY HATA:", err);
