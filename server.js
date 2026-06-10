@@ -12,7 +12,7 @@ app.use(
         origin: [
             "http://localhost:5173",
             "http://localhost:3000",
-            "https://*.onrender.com",
+            "https://irsaliye-fatura.vercel.app",
         ],
         credentials: true,
     })
