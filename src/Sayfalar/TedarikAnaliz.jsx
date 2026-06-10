@@ -16,13 +16,13 @@ import {
     filoMu,
 } from "../services/tedarikReportService";
 const API_BASE =
-    import.meta.env.VITE_ODAK_API_URL || "https://api.odaklojistik.com.tr";
+    import.meta.env.VITE_SHO_API_BASE_URL || "https://irsaliye-fatura.onrender.com";
 
 const TMS_ORDERS_API_URL =
-    `${API_BASE}/api/tmsorders/getall`;
+    `${API_BASE}/api/proxy/tmsorders`;
 
 const TMS_DESPATCH_API_URL =
-    `${API_BASE}/api/tmsdespatches/getall`;
+    `${API_BASE}/api/proxy/tmsdespatches`;
 
 const TOKEN = import.meta.env.VITE_TMS_TOKEN;
 const DEFAULT_USER_ID = Number(import.meta.env.VITE_TMS_USER_ID || 85);
