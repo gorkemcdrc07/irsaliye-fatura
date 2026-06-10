@@ -11,6 +11,7 @@ function getPermissions() {
 
 const NAV_ITEMS = [
     { path: "/", label: "Ana Sayfa", icon: "ti-layout-dashboard", perm: "evrak" },
+    { path: "/tedarik-analiz", label: "Tedarik Analiz", icon: "ti-chart-bar", perm: "tedarikAnaliz" },
     { path: "/teslim-evraklari", label: "Teslim Evrakları", icon: "ti-file-description", perm: "evrak" },
     { path: "/fatura", label: "Fatura", icon: "ti-receipt", perm: "fatura" },
     { path: "/kullanici-yonetimi", label: "Kullanıcı Yönetimi", icon: "ti-users", perm: "admin" },
@@ -26,25 +27,22 @@ function Topbar() {
 
     const evrakYetkisiVar = permissions.includes("evrak");
     const faturaYetkisiVar = permissions.includes("fatura");
+    const tedarikAnalizYetkisiVar = permissions.includes("tedarikAnaliz");
     const adminYetkisiVar = role === "admin";
 
     const rolLabel = adminYetkisiVar
         ? "Sistem Yöneticisi"
-        : evrakYetkisiVar && faturaYetkisiVar
-            ? "Evrak & Fatura"
-            : evrakYetkisiVar
-                ? "Evrak Kullanıcısı"
-                : faturaYetkisiVar
-                    ? "Fatura Kullanıcısı"
-                    : "Yetkisiz";
+        : [
+            evrakYetkisiVar ? "Evrak" : null,
+            faturaYetkisiVar ? "Fatura" : null,
+            tedarikAnalizYetkisiVar ? "Tedarik Analiz" : null,
+        ].filter(Boolean).join(" & ") || "Yetkisiz";
 
     const avatar = kullaniciAdi.substring(0, 2).toUpperCase();
 
     const gorunurNavItems = NAV_ITEMS.filter((item) => {
         if (item.perm === "admin") return adminYetkisiVar;
-        if (item.perm === "evrak") return evrakYetkisiVar;
-        if (item.perm === "fatura") return faturaYetkisiVar;
-        return false;
+        return permissions.includes(item.perm);
     });
 
     function cikisYap() {
@@ -56,6 +54,7 @@ function Topbar() {
 
     function anaSayfayaGit() {
         if (evrakYetkisiVar) return navigate("/");
+        if (tedarikAnalizYetkisiVar) return navigate("/tedarik-analiz");
         if (faturaYetkisiVar) return navigate("/fatura");
         if (adminYetkisiVar) return navigate("/kullanici-yonetimi");
         navigate("/login", { replace: true });
@@ -63,19 +62,23 @@ function Topbar() {
 
     return (
         <header className="topbar">
-            {/* ── Brand ── */}
-            <div className="brand" onClick={anaSayfayaGit} role="button" tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && anaSayfayaGit()}>
+            <div
+                className="brand"
+                onClick={anaSayfayaGit}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && anaSayfayaGit()}
+            >
                 <div className="brand-mark">
                     <i className="ti ti-truck-delivery" />
                 </div>
+
                 <div className="brand-text">
                     <span className="brand-name">Odak Tedarik Zinciri ve Lojistik A.Ş.</span>
                     <span className="brand-sub">Teslim Evrak Takip</span>
                 </div>
             </div>
 
-            {/* ── Nav ── */}
             <nav className="nav-links" aria-label="Ana menü">
                 {gorunurNavItems.map((item) => (
                     <button
@@ -89,7 +92,6 @@ function Topbar() {
                 ))}
             </nav>
 
-            {/* ── Actions ── */}
             <div className="top-actions">
                 <button className="icon-btn" aria-label="Bildirimler">
                     <i className="ti ti-bell" />

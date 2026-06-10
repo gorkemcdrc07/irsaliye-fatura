@@ -5,6 +5,7 @@ import "./KullaniciYonetimi.css";
 const TUM_YETKILER = [
     { key: "evrak", label: "Teslim Evrakları", icon: "ti-file-description" },
     { key: "fatura", label: "Faturalar", icon: "ti-receipt" },
+    { key: "tedarikAnaliz", label: "Tedarik Analiz", icon: "ti-chart-bar" },
 ];
 function bosForm() {
     return { userName: "", password: "", customerId: "", permissions: [] };

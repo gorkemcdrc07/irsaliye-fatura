@@ -9,6 +9,7 @@ import {
 
 import Topbar from "./Bilesenler/Topbar";
 import AnaSayfa from "./Sayfalar/AnaSayfa";
+import TedarikAnaliz from "./Sayfalar/TedarikAnaliz";
 import TeslimEvraklari from "./Sayfalar/TeslimEvraklari";
 import Fatura from "./Sayfalar/Fatura";
 import Login from "./Sayfalar/Login";
@@ -30,9 +31,9 @@ function getDefaultPath(): string {
     const permissions = getPermissions();
     const role = getRole();
 
+    if (role === "admin") return "/kullanici-yonetimi";
     if (permissions.includes("evrak")) return "/";
     if (permissions.includes("fatura")) return "/fatura";
-    if (role === "admin") return "/kullanici-yonetimi";
 
     return "/login";
 }
@@ -90,6 +91,15 @@ function Layout() {
                     element={
                         <ProtectedRoute permission="evrak">
                             <AnaSayfa />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/tedarik-analiz"
+                    element={
+                        <ProtectedRoute permission="evrak">
+                            <TedarikAnaliz />
                         </ProtectedRoute>
                     }
                 />
