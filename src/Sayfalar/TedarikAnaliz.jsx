@@ -15,8 +15,14 @@ import {
     hizmetKapsamdaMi,
     filoMu,
 } from "../services/tedarikReportService";
-const TMS_ORDERS_API_URL = "/odak-api/api/tmsorders/getall";
-const TMS_DESPATCH_API_URL = "/odak-api/api/tmsdespatches/getall";
+const API_BASE =
+    import.meta.env.VITE_ODAK_API_URL || "https://api.odaklojistik.com.tr";
+
+const TMS_ORDERS_API_URL =
+    `${API_BASE}/api/tmsorders/getall`;
+
+const TMS_DESPATCH_API_URL =
+    `${API_BASE}/api/tmsdespatches/getall`;
 
 const TOKEN = import.meta.env.VITE_TMS_TOKEN;
 const DEFAULT_USER_ID = Number(import.meta.env.VITE_TMS_USER_ID || 85);
