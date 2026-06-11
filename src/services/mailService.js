@@ -1,3 +1,6 @@
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
+
 import nodemailer from "nodemailer";
 
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
