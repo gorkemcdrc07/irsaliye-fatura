@@ -27,23 +27,26 @@ function trTarihSaat() {
 }
 
 function saatleriNormalizeEt(value) {
-    if (Array.isArray(value)) return value;
+    let liste = [];
 
-    if (typeof value === "string") {
+    if (Array.isArray(value)) {
+        liste = value;
+    } else if (typeof value === "string") {
         try {
             const parsed = JSON.parse(value);
-            if (Array.isArray(parsed)) return parsed;
+            liste = Array.isArray(parsed) ? parsed : [];
         } catch {
-            return value
+            liste = value
                 .split(",")
                 .map((x) => x.trim())
                 .filter(Boolean);
         }
     }
 
-    return [];
+    return liste
+        .map((x) => String(x || "").trim().slice(0, 5))
+        .filter(Boolean);
 }
-
 const gonderilenCache = new Set();
 
 async function otomatikMailKontrolEt() {
@@ -60,11 +63,22 @@ async function otomatikMailKontrolEt() {
         console.error("Mail gruplarý çekilemedi:", error.message);
         return;
     }
+    console.log("Aktif mail grup sayýsý:", gruplar?.length || 0);
 
     for (const grup of gruplar || []) {
         const saatler = saatleriNormalizeEt(grup.saatler);
 
-        if (!saatler.includes(saat)) continue;
+        console.log("Grup kontrol:", {
+            grupAdi: grup.grup_adi,
+            dbSaatler: grup.saatler,
+            normalizeSaatler: saatler,
+            simdikiSaat: saat,
+        });
+
+        if (!saatler.includes(saat)) {
+            console.log("Saat eþleþmedi:", grup.grup_adi);
+            continue;
+        }
 
         const cacheKey = `${tarih}-${saat}-${grup.id}`;
 
