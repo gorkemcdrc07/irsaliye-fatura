@@ -17,7 +17,7 @@ export const transporter = nodemailer.createTransport({
 
     connectionTimeout: 30000,
     greetingTimeout: 30000,
-    socketTimeout: 60000,
+    socketTimeout: 120000,
 
     tls: {
         rejectUnauthorized: false,
@@ -76,7 +76,7 @@ export async function mailGonder({
             attachments,
         }),
         new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("SMTP TIMEOUT 30s")), 30000)
+            setTimeout(() => reject(new Error("SMTP TIMEOUT 120s")), 120000)
         ),
     ]);
 
