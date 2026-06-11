@@ -28,6 +28,7 @@ transporter.verify((error, success) => {
         console.log("SMTP baðlantýsý hazýr:", success);
     }
 });
+
 function htmlToText(html = "") {
     return html
         .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
@@ -61,22 +62,20 @@ export async function mailGonder({
         subject,
     });
 
-    const info = await transporter.sendMail({
-        from: `"Odak Süreç Takip" <${process.env.SMTP_USER}>`,
-        sender: process.env.SMTP_USER,
-        replyTo: process.env.SMTP_USER,
-        to,
-        cc: cc || undefined,
-        subject,
-        html,
-        text: htmlToText(html),
-        encoding: "utf-8",
-        headers: {
-            "Content-Type": "text/html; charset=UTF-8",
-            "X-Mailer": "Odak Süreç Takip",
-        },
-        attachments,
-    });
+    const info = await Promise.race([
+        transporter.sendMail({
+            from: process.env.SMTP_USER,
+            to,
+            cc: cc || undefined,
+            subject,
+            html,
+            text: htmlToText(html),
+            attachments,
+        }),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("SMTP TIMEOUT 30s")), 30000)
+        ),
+    ]);
 
     console.log("SMTP sendMail tamamlandý:", {
         messageId: info.messageId,
