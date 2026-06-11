@@ -91,11 +91,20 @@ async function otomatikMailKontrolEt() {
         try {
             console.log(`Rapor hazýrlanýyor: ${grup.grup_adi} - ${saat}`);
 
+            console.log("Rapor servisine girildi:", {
+                grupAdi: grup.grup_adi,
+                projeIds: grup.proje_ids || [],
+            });
+
             const rapor = await tedarikRaporuOlustur({
                 supabaseAdmin,
                 projeIds: grup.proje_ids || [],
             });
 
+            console.log("Rapor servisi tamamlandý:", {
+                grupAdi: grup.grup_adi,
+                tabloVarMi: !!rapor?.tabloHtml,
+            });
             const html = tedarikMailTemplate({
                 title: grup.konu || "Tedarik Analiz Raporu",
                 body: grup.body || "",
@@ -114,7 +123,11 @@ async function otomatikMailKontrolEt() {
 
             console.log(`Mail gönderildi: ${grup.grup_adi} - ${saat}`);
         } catch (err) {
-            console.error(`Mail gönderilemedi: ${grup.grup_adi}`, err.message);
+            console.error(
+                `Mail gönderilemedi: ${grup.grup_adi}`
+            );
+
+            console.error(err);
         }
     }
 }

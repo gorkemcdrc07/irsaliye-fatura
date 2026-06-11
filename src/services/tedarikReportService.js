@@ -11,6 +11,28 @@ const TMS_DESPATCH_API_URL = "https://api.odaklojistik.com.tr/api/tmsdespatches/
 const TOKEN = ENV.VITE_TMS_TOKEN;
 const DEFAULT_USER_ID = Number(ENV.VITE_TMS_USER_ID || 85);
 
+const FETCH_TIMEOUT_MS = 60000;
+
+async function fetchWithTimeout(
+    url,
+    options = {},
+    timeoutMs = FETCH_TIMEOUT_MS
+) {
+    const controller = new AbortController();
+
+    const timer = setTimeout(() => {
+        controller.abort();
+    }, timeoutMs);
+
+    try {
+        return await fetch(url, {
+            ...options,
+            signal: controller.signal,
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+}
 function toIsoStart(dateValue) {
     return `${dateValue}T00:00:00`;
 }
@@ -141,7 +163,13 @@ function filoMu(item) {
 }
 
 async function tmsOrdersCek({ startDate, endDate, userId = DEFAULT_USER_ID }) {
-    const res = await fetch(TMS_ORDERS_API_URL, {
+
+    console.log("TMS Orders çekiliyor...", {
+        startDate,
+        endDate,
+    });
+
+    const res = await fetchWithTimeout(TMS_ORDERS_API_URL, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -162,11 +190,24 @@ async function tmsOrdersCek({ startDate, endDate, userId = DEFAULT_USER_ID }) {
         throw new Error(`TMS Orders API hata: ${res.status}`);
     }
 
-    return extractItems(payload);
+    const items = extractItems(payload);
+
+    console.log(
+        "TMS Orders tamamlandı:",
+        items.length
+    );
+
+    return items;
 }
 
 async function tmsDespatchesCek({ startDate, endDate, userId = DEFAULT_USER_ID }) {
-    const res = await fetch(TMS_DESPATCH_API_URL, {
+
+    console.log("TMS Despatches çekiliyor...", {
+        startDate,
+        endDate,
+    });
+
+    const res = await fetchWithTimeout(TMS_DESPATCH_API_URL, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -194,7 +235,14 @@ async function tmsDespatchesCek({ startDate, endDate, userId = DEFAULT_USER_ID }
         throw new Error(`TMS Despatch API hata: ${res.status}`);
     }
 
-    return extractItems(payload);
+    const items = extractItems(payload);
+
+    console.log(
+        "TMS Despatches tamamlandı:",
+        items.length
+    );
+
+    return items;
 }
 
 function raporTarihiOlustur() {
@@ -222,11 +270,26 @@ export async function tedarikRaporuOlustur({ supabaseAdmin, projeIds }) {
     const projeAdlari = (projeler || []).map((p) => p.proje_adi);
     const projeSet = new Set(projeAdlari.map(norm));
 
+    console.log(
+        "TMS API çağrıları başladı:",
+        {
+            startDate,
+            endDate,
+        }
+    );
+
     const [orders, despatches] = await Promise.all([
         tmsOrdersCek({ startDate, endDate }),
         tmsDespatchesCek({ startDate, endDate }),
     ]);
 
+    console.log(
+        "TMS API çağrıları tamamlandı:",
+        {
+            orders: orders.length,
+            despatches: despatches.length,
+        }
+    );
     const despatchMap = {};
     despatches.forEach((item) => {
         const key = seferNoNormalizeEt(
