@@ -1,41 +1,63 @@
 import dns from "dns";
 import nodemailer from "nodemailer";
 
+const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 
-// IPv6 ENETUNREACH sorununu önlemek için DNS lookup'ý IPv4'e zorla
-function lookupIPv4(hostname, options, callback) {
-    if (typeof options === "function") {
-        callback = options;
-        options = {};
-    }
-    dns.lookup(hostname, { ...options, family: 4 }, callback);
+let transporter;
+
+async function resolveIPv4(hostname) {
+    return new Promise((resolve, reject) => {
+        dns.resolve4(hostname, (err, addresses) => {
+            if (err || !addresses || !addresses.length) {
+                reject(err || new Error("IPv4 adres bulunamadý"));
+            } else {
+                resolve(addresses[0]);
+            }
+        });
+    });
 }
 
-export const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-    connectionTimeout: 60000,
-    greetingTimeout: 60000,
-    socketTimeout: 300000,
-    tls: {
-        rejectUnauthorized: false,
-    },
-    lookup: lookupIPv4,
-});
+async function getTransporter() {
+    if (transporter) return transporter;
 
-transporter.verify((error, success) => {
-    if (error) {
-        console.error("SMTP baðlantý hatasý:", error);
-    } else {
-        console.log("SMTP baðlantýsý hazýr:", success);
+    let host = SMTP_HOST;
+
+    try {
+        const ipv4 = await resolveIPv4(SMTP_HOST);
+        console.log("SMTP IPv4 çözümlendi:", { hostname: SMTP_HOST, ip: ipv4 });
+        host = ipv4;
+    } catch (err) {
+        console.error("SMTP IPv4 çözümleme hatasý, hostname ile devam:", err.message);
     }
-});
+
+    transporter = nodemailer.createTransport({
+        host,
+        port: SMTP_PORT,
+        secure: SMTP_PORT === 465,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+        connectionTimeout: 60000,
+        greetingTimeout: 60000,
+        socketTimeout: 300000,
+        tls: {
+            rejectUnauthorized: false,
+            servername: SMTP_HOST,
+        },
+    });
+
+    transporter.verify((error, success) => {
+        if (error) {
+            console.error("SMTP baðlantý hatasý:", error);
+        } else {
+            console.log("SMTP baðlantýsý hazýr:", success);
+        }
+    });
+
+    return transporter;
+}
 
 function htmlToText(html = "") {
     return html
@@ -62,7 +84,7 @@ export async function mailGonder({
     attachments = [],
 }) {
     console.log("SMTP sendMail baþladý:", {
-        host: process.env.SMTP_HOST,
+        host: SMTP_HOST,
         port: SMTP_PORT,
         user: process.env.SMTP_USER,
         to,
@@ -70,7 +92,9 @@ export async function mailGonder({
         subject,
     });
 
-    const info = await transporter.sendMail({
+    const t = await getTransporter();
+
+    const info = await t.sendMail({
         from: process.env.SMTP_USER,
         to,
         cc: cc || undefined,
