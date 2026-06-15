@@ -704,39 +704,18 @@ export async function tedarikRaporuOlusturFrontend({ projeIds }) {
         </div>
     </div>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:10px 0;margin-bottom:18px;background:#ffffff;">
-        <tr>
-            <td style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:14px;">
-                <div style="font-size:11px;font-weight:800;color:#1d4ed8;">TOPLAM TALEP</div>
-                <div style="font-size:24px;font-weight:800;color:#1e3a8a;margin-top:6px;">${toplam.plan}</div>
-            </td>
-            <td style="border:1px solid #bbf7d0;background:#ecfdf5;border-radius:10px;padding:14px;">
-                <div style="font-size:11px;font-weight:800;color:#15803d;">TEDARİK EDİLEN</div>
-                <div style="font-size:24px;font-weight:800;color:#166534;margin-top:6px;">${toplam.ted}</div>
-            </td>
-            <td style="border:1px solid #fecaca;background:#fef2f2;border-radius:10px;padding:14px;">
-                <div style="font-size:11px;font-weight:800;color:#b91c1c;">TEDARİK EDİLMEYEN</div>
-                <div style="font-size:24px;font-weight:800;color:#991b1b;margin-top:6px;">${toplam.edilmeyen}</div>
-            </td>
-            <td style="border:1px solid #cbd5e1;background:#f8fafc;border-radius:10px;padding:14px;">
-                <div style="font-size:11px;font-weight:800;color:#334155;">GENEL PERFORMANS</div>
-                <div style="font-size:24px;font-weight:800;color:#0f172a;margin-top:6px;">%${genelPerformans}</div>
-            </td>
-        </tr>
-    </table>
-
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#ffffff;border:1px solid #dbe3ef;font-size:13px;">
         <thead>
             <tr>
-                <th style="background:#0f172a;color:#ffffff;padding:12px;text-align:left;border:1px solid #0f172a;">Proje</th>
-                <th style="background:#0f172a;color:#ffffff;padding:12px;text-align:center;border:1px solid #0f172a;">Talep</th>
-                <th style="background:#0f172a;color:#ffffff;padding:12px;text-align:center;border:1px solid #0f172a;">Tedarik</th>
-                <th style="background:#0f172a;color:#ffffff;padding:12px;text-align:center;border:1px solid #0f172a;">Spot</th>
-                <th style="background:#0f172a;color:#ffffff;padding:12px;text-align:center;border:1px solid #0f172a;">Filo</th>
-                <th style="background:#0f172a;color:#ffffff;padding:12px;text-align:center;border:1px solid #0f172a;">SHÖ</th>
-                <th style="background:#0f172a;color:#ffffff;padding:12px;text-align:center;border:1px solid #0f172a;">Edilmeyen</th>
-                <th style="background:#0f172a;color:#ffffff;padding:12px;text-align:center;border:1px solid #0f172a;">Geç</th>
-                <th style="background:#0f172a;color:#ffffff;padding:12px;text-align:center;border:1px solid #0f172a;">Performans</th>
+                <th style="background:#f1f5f9;color:#111827;padding:12px;text-align:left;border:1px solid #cbd5e1;font-weight:800;">Proje</th>
+                <th style="background:#f1f5f9;color:#111827;padding:12px;text-align:center;border:1px solid #cbd5e1;font-weight:800;">Talep</th>
+                <th style="background:#f1f5f9;color:#111827;padding:12px;text-align:center;border:1px solid #cbd5e1;font-weight:800;">Tedarik</th>
+                <th style="background:#f1f5f9;color:#111827;padding:12px;text-align:center;border:1px solid #cbd5e1;font-weight:800;">Spot</th>
+                <th style="background:#f1f5f9;color:#111827;padding:12px;text-align:center;border:1px solid #cbd5e1;font-weight:800;">Filo</th>
+                <th style="background:#f1f5f9;color:#111827;padding:12px;text-align:center;border:1px solid #cbd5e1;font-weight:800;">SHÖ</th>
+                <th style="background:#f1f5f9;color:#111827;padding:12px;text-align:center;border:1px solid #cbd5e1;font-weight:800;">Edilmeyen</th>
+                <th style="background:#f1f5f9;color:#111827;padding:12px;text-align:center;border:1px solid #cbd5e1;font-weight:800;">Geç</th>
+                <th style="background:#f1f5f9;color:#111827;padding:12px;text-align:center;border:1px solid #cbd5e1;font-weight:800;">Performans</th>
             </tr>
         </thead>
         <tbody>
@@ -783,7 +762,6 @@ export async function tedarikRaporuOlusturFrontend({ projeIds }) {
     </div>
 </div>
 `;
-
     return {
         startDate,
         endDate,
