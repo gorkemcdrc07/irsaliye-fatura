@@ -1,6 +1,5 @@
 import dns from "dns";
 dns.setDefaultResultOrder("ipv4first");
-
 import nodemailer from "nodemailer";
 
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
@@ -9,16 +8,13 @@ export const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: SMTP_PORT,
     secure: SMTP_PORT === 465,
-
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
-
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 120000,
-
+    connectionTimeout: 60000,
+    greetingTimeout: 60000,
+    socketTimeout: 300000,
     tls: {
         rejectUnauthorized: false,
     },
@@ -65,20 +61,15 @@ export async function mailGonder({
         subject,
     });
 
-    const info = await Promise.race([
-        transporter.sendMail({
-            from: process.env.SMTP_USER,
-            to,
-            cc: cc || undefined,
-            subject,
-            html,
-            text: htmlToText(html),
-            attachments,
-        }),
-        new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("SMTP TIMEOUT 120s")), 120000)
-        ),
-    ]);
+    const info = await transporter.sendMail({
+        from: process.env.SMTP_USER,
+        to,
+        cc: cc || undefined,
+        subject,
+        html,
+        text: htmlToText(html),
+        attachments,
+    });
 
     console.log("SMTP sendMail tamamlandý:", {
         messageId: info.messageId,
