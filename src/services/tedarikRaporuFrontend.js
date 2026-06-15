@@ -23,13 +23,43 @@ const TMS_DESPATCH_API_URL = `${MAIL_API_BASE}/api/proxy/tmsdespatches`;
 const TOKEN = import.meta.env.VITE_TMS_TOKEN;
 const DEFAULT_USER_ID = Number(import.meta.env.VITE_TMS_USER_ID || 85);
 
-function raporTarihiOlustur() {
-    const dun = new Date();
-    dun.setDate(dun.getDate() - 1);
-    const tarih = dun.toISOString().slice(0, 10);
-    return { startDate: tarih, endDate: tarih };
+function localIsoDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
 }
 
+function raporTarihiOlustur() {
+    const bugun = new Date();
+    const gun = bugun.getDay();
+    // Pazar: 0, Pazartesi: 1, Salı: 2 ...
+
+    // Eğer bugün pazartesi ise önceki haftanın pazartesi-pazar arası
+    if (gun === 1) {
+        const oncekiPazartesi = new Date(bugun);
+        oncekiPazartesi.setDate(bugun.getDate() - 7);
+
+        const oncekiPazar = new Date(bugun);
+        oncekiPazar.setDate(bugun.getDate() - 1);
+
+        return {
+            startDate: localIsoDate(oncekiPazartesi),
+            endDate: localIsoDate(oncekiPazar),
+        };
+    }
+
+    // Diğer günlerde sadece bir önceki gün
+    const dun = new Date(bugun);
+    dun.setDate(bugun.getDate() - 1);
+
+    const tarih = localIsoDate(dun);
+
+    return {
+        startDate: tarih,
+        endDate: tarih,
+    };
+}
 function tarihFormatla(value) {
     if (!value) return "";
     const d = new Date(value);

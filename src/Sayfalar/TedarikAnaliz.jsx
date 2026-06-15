@@ -145,6 +145,22 @@ function PerfCell({ pct }) {
     );
 }
 
+function pazartesiHaftalikRaporMu() {
+    return new Date().getDay() === 1;
+}
+
+function oncekiHaftaTarihText() {
+    const bugun = new Date();
+
+    const pazartesi = new Date(bugun);
+    pazartesi.setDate(bugun.getDate() - 7);
+
+    const pazar = new Date(bugun);
+    pazar.setDate(bugun.getDate() - 1);
+
+    return `${pazartesi.toLocaleDateString("tr-TR")} - ${pazar.toLocaleDateString("tr-TR")}`;
+}
+
 export default function TedarikAnaliz() {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -557,7 +573,7 @@ export default function TedarikAnaliz() {
 <p>Herkese Merhaba,</p>
 
 <p>
-Bir önceki iş gününe ait sorumluluğunuzdaki projelere ait siparişleri ve plaka ataması yaptığınız seferleri kontrolünüz için ekte paylaşıyoruz.
+{{RAPOR_DONEMI}} sorumluluğunuzdaki projelere ait siparişleri ve plaka ataması yaptığınız seferleri kontrolünüz için ekte paylaşıyoruz.
 </p>
 
 <p>İlgili raporda;</p>
@@ -581,7 +597,7 @@ Plaka ataması yapılmamış siparişlerde ya da plaka ataması yapılmış sefe
 </p>
 
 <p>
-Saat 18:00'de yayınlanacak final rapor, sorumluluğunuzdaki projelerle ilgili bir önceki işgününe ait <b>"Talep-Tedarik Performansı"</b> olarak kayıtlara otomatik olarak geçecektir.
+Saat 18:00'de yayınlanacak final rapor, sorumluluğunuzdaki projelerle ilgili {{RAPOR_DONEMI}} <b>"Talep-Tedarik Performansı"</b> olarak kayıtlara otomatik olarak geçecektir.
 </p>
 
 <p>Bilgilerinize sunar, iyi çalışmalar dileriz.</p>
@@ -591,7 +607,7 @@ Saat 18:00'de yayınlanacak final rapor, sorumluluğunuzdaki projelerle ilgili b
 <p>Herkese Merhaba,</p>
 
 <p>
-Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
+{{RAPOR_DONEMI}} sorumluluğunuzdaki projelerle ilgili
 <b>"Talep-Tedarik Performansı"</b> olarak kayıtlara geçen final rapor eklidir.
 </p>
 
@@ -610,17 +626,24 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
 
             const saat = new Date().getHours();
 
+            const haftalikMi = pazartesiHaftalikRaporMu();
+
             const oncekiGun = new Date();
             oncekiGun.setDate(oncekiGun.getDate() - 1);
 
             const tarihText = oncekiGun.toLocaleDateString("tr-TR");
+            const haftaText = oncekiHaftaTarihText();
 
-            const otomatikKonu = `${tarihText} Tarihli Tedarik Analiz Raporu Hk.`;
+            const otomatikKonu = haftalikMi
+                ? `${haftaText} Tarihli Haftalık Tedarik Analiz Raporu Hk.`
+                : `${tarihText} Tarihli Tedarik Analiz Raporu Hk.`;
 
-            const mailMetni =
-                saat < 12
-                    ? SABAH_MAIL_METNI
-                    : AKSAM_MAIL_METNI;
+            const raporDonemi = haftalikMi
+                ? "geçen haftaya ait"
+                : "bir önceki iş gününe ait";
+
+            const mailMetni = (saat < 12 ? SABAH_MAIL_METNI : AKSAM_MAIL_METNI)
+                .replaceAll("{{RAPOR_DONEMI}}", raporDonemi);
 
             const html = `
 <div style="font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
