@@ -14,7 +14,7 @@ export async function outlookTaslakAc({
             }),
         ]);
     } catch (err) {
-        console.error("Panoya kopyalama hatası:", err);
+        console.error("Panoya kopyalama hatasÄ±:", err);
     }
 
     const mailtoUrl =
@@ -25,6 +25,6 @@ export async function outlookTaslakAc({
     window.location.href = mailtoUrl;
 
     alert(
-        "Outlook uygulaması açıldıysa HTML gövde panoya kopyalandı.\nMail gövdesine tıklayıp Ctrl+V yapıştırabilirsiniz."
+        "Outlook uygulamasÄ± aÃ§Ä±ldÄ±ysa HTML gÃ¶vde panoya kopyalandÄ±.\nMail gÃ¶vdesine tÄ±klayÄ±p Ctrl+V yapÄ±ÅŸtÄ±rabilirsiniz."
     );
 }

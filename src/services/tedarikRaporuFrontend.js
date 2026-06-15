@@ -173,10 +173,10 @@ export async function tedarikRaporuOlusturFrontend({ projeIds }) {
                     <th style="padding:10px;border:1px solid #e2e8f0;">Tedarik Edilen</th>
                     <th style="padding:10px;border:1px solid #e2e8f0;">Spot</th>
                     <th style="padding:10px;border:1px solid #e2e8f0;">Filo</th>
-                    <th style="padding:10px;border:1px solid #e2e8f0;">SHÖ Oraný</th>
+                    <th style="padding:10px;border:1px solid #e2e8f0;">SHÃ– OranÄ±</th>
                     <th style="padding:10px;border:1px solid #e2e8f0;">Tedarik Edilmeyen</th>
-                    <th style="padding:10px;border:1px solid #e2e8f0;">Geç Tedarik</th>
-                    <th style="padding:10px;border:1px solid #e2e8f0;">Zamanýnda Oraný</th>
+                    <th style="padding:10px;border:1px solid #e2e8f0;">GeÃ§ Tedarik</th>
+                    <th style="padding:10px;border:1px solid #e2e8f0;">ZamanÄ±nda OranÄ±</th>
                 </tr>
             </thead>
             <tbody>
