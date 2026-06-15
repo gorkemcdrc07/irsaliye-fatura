@@ -15,6 +15,9 @@ import {
     hizmetKapsamdaMi,
     filoMu,
 } from "../services/tedarikReportService";
+
+import { tedarikRaporuOlusturFrontend } from "../services/tedarikRaporuFrontend";
+import { outlookTaslakAc } from "../utils/outlookHelper";
 const MAIL_API_BASE = "https://irsaliye-fatura.onrender.com";
 
 const TMS_ORDERS_API_URL =
@@ -26,11 +29,6 @@ const TMS_DESPATCH_API_URL =
 const TOKEN = import.meta.env.VITE_TMS_TOKEN;
 const DEFAULT_USER_ID = Number(import.meta.env.VITE_TMS_USER_ID || 85);
 
-const SAAT_SECENEKLERI = [
-    "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
-    "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
-    "18:00", "19:00", "20:00", "21:00", "22:00",
-];
 
 const REGIONS = {
     TRAKYA: [
@@ -181,11 +179,14 @@ export default function TedarikAnaliz() {
     const [mailKonu, setMailKonu] = useState("");
     const [mailBody, setMailBody] = useState("");
     const [mailProjeIds, setMailProjeIds] = useState([]);
-    const [mailSaatler, setMailSaatler] = useState([]);
-    const [manuelSaat, setManuelSaat] = useState("");
 
     // Düzenleme modu için
+    // Düzenleme modu için
     const [duzenleGrupId, setDuzenleGrupId] = useState(null);
+
+    // Outlook'ta aç işlemi için
+    const [outlookLoadingId, setOutlookLoadingId] = useState(null);
+
 
     async function ayarVerileriniCek() {
         setAyarLoading(true);
@@ -283,8 +284,6 @@ export default function TedarikAnaliz() {
         setMailKonu("");
         setMailBody("");
         setMailProjeIds([]);
-        setMailSaatler([]);
-        setManuelSaat("");
         setDuzenleGrupId(null);
     }
 
@@ -296,7 +295,6 @@ export default function TedarikAnaliz() {
         setMailKonu(g.konu || "");
         setMailBody(g.body || "");
         setMailProjeIds(g.proje_ids || []);
-        setMailSaatler(g.saatler || []);
         window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
@@ -314,7 +312,6 @@ export default function TedarikAnaliz() {
         if (!mailGrupAdi.trim()) { setAyarMesaj("Grup adı boş olamaz."); return; }
         if (!mailKime.trim()) { setAyarMesaj("Kime alanı boş olamaz."); return; }
         if (mailProjeIds.length === 0) { setAyarMesaj("En az bir proje seçmelisiniz."); return; }
-        if (mailSaatler.length === 0) { setAyarMesaj("En az bir gönderim saati seçmelisiniz."); return; }
 
         setAyarLoading(true);
         setAyarMesaj("");
@@ -326,8 +323,6 @@ export default function TedarikAnaliz() {
             konu: mailKonu.trim(),
             body: mailBody.trim(),
             proje_ids: mailProjeIds.map(Number),
-            saatler: mailSaatler,
-            aktif: true,
         };
 
         let dbError;
@@ -352,6 +347,42 @@ export default function TedarikAnaliz() {
         setAyarMesaj(duzenleGrupId ? "Mail grubu güncellendi." : "Mail grubu kaydedildi.");
     }
 
+    async function grupRaporunuOutlookaGonder(grup) {
+        setOutlookLoadingId(grup.id);
+        setAyarMesaj("");
+
+        try {
+            const rapor = await tedarikRaporuOlusturFrontend({
+                projeIds: grup.proje_ids || [],
+            });
+
+            const html = `
+                <div style="font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.5;">
+                    <p>Merhaba,</p>
+                    ${grup.body ? `<p>${String(grup.body).replace(/\n/g, "<br />")}</p>` : ""}
+                    ${rapor.tabloHtml || ""}
+                    <p>İyi çalışmalar.</p>
+                </div>
+            `;
+
+            await outlookTaslakAc({
+                to: grup.kime,
+                cc: grup.ss,
+                subject: grup.konu || "Tedarik Analiz Raporu",
+                html,
+            });
+
+            setAyarMesaj("Outlook açıldı. HTML gövde panoya kopyalandı, Outlook gövde alanına yapıştırabilirsiniz.");
+        } catch (e) {
+            console.error("Rapor/Outlook hatası:", e);
+            setAyarMesaj(e?.message || "Rapor oluşturulamadı.");
+        } finally {
+            setOutlookLoadingId(null);
+        }
+    }
+
+
+
     function mailProjeSecimiDegistir(projeId, checked) {
         setMailProjeIds((prev) => {
             if (checked) return prev.includes(projeId) ? prev : [...prev, projeId];
@@ -359,26 +390,7 @@ export default function TedarikAnaliz() {
         });
     }
 
-    function mailSaatDegistir(saat, checked) {
-        setMailSaatler((prev) => {
-            if (checked) return prev.includes(saat) ? prev : [...prev, saat].sort();
-            return prev.filter((s) => s !== saat);
-        });
-    }
 
-    function manuelSaatEkle() {
-        if (!manuelSaat) {
-            setAyarMesaj("Saat alanı boş olamaz.");
-            return;
-        }
-
-        setMailSaatler((prev) => {
-            if (prev.includes(manuelSaat)) return prev;
-            return [...prev, manuelSaat].sort();
-        });
-
-        setManuelSaat("");
-    }
 
     async function handleVerileriCek() {
         setLoading(true);
@@ -657,7 +669,7 @@ export default function TedarikAnaliz() {
                                 </div>
                                 <div>
                                     <h2 className="ta-m2-title">Ayarlar</h2>
-                                    <p className="ta-m2-sub">Bölge, proje ve mail gruplarını yönet</p>
+                                    <p className="ta-m2-sub">Bölge, proje ve Outlook mail gruplarını yönet</p>
                                 </div>
                             </div>
                             <button className="ta-m2-close" onClick={() => setAyarPanelAcik(false)} aria-label="Kapat">
@@ -830,7 +842,7 @@ export default function TedarikAnaliz() {
                                     <div className="ta-m2-section-head">
                                         <div>
                                             <h3>{duzenleGrupId ? "Mail Grubunu Düzenle" : "Yeni Mail Grubu"}</h3>
-                                            <p>Otomatik bildirim için alıcı, proje ve gönderim saatlerini seçin.</p>
+                                            <p>Outlook taslağı için alıcı, konu ve projeleri seçin.</p>
                                         </div>
                                         {duzenleGrupId && (
                                             <button className="ta-m2-action-btn ta-m2-action-ghost" onClick={mailFormSifirla}>
@@ -868,77 +880,6 @@ export default function TedarikAnaliz() {
                                             placeholder="Rapora ek not eklemek isterseniz buraya yazın (opsiyonel). Tablo otomatik oluşturulur."
                                         />
                                     </div>
-
-                                    <div className="ta-m2-divider" />
-
-                                    {/* GÖNDERİM SAATLERİ */}
-                                    <div className="ta-m2-section-head">
-                                        <div>
-                                            <h3>
-                                                Gönderim Saatleri
-                                                <span className="ta-m2-count">{mailSaatler.length} seçili</span>
-                                            </h3>
-                                            <p>Seçilen saatlerde günlük otomatik rapor gönderilir.</p>
-                                        </div>
-                                        {mailSaatler.length > 0 && (
-                                            <button
-                                                className="ta-m2-action-btn ta-m2-action-ghost"
-                                                onClick={() => setMailSaatler([])}
-                                                style={{ fontSize: "11px" }}
-                                            >
-                                                Temizle
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="ta-m2-form-row" style={{ marginBottom: "12px" }}>
-                                        <div className="ta-m2-field">
-                                            <label className="ta-m2-label">Manuel Saat Ekle</label>
-                                            <input
-                                                className="ta-m2-input"
-                                                type="time"
-                                                value={manuelSaat}
-                                                onChange={(e) => setManuelSaat(e.target.value)}
-                                            />
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            className="ta-m2-action-btn ta-m2-action-primary"
-                                            onClick={manuelSaatEkle}
-                                            disabled={!manuelSaat}
-                                            style={{ alignSelf: "end" }}
-                                        >
-                                            + Saat Ekle
-                                        </button>
-                                    </div>
-                                    <div className="ta-m2-saat-grid">
-                                        {SAAT_SECENEKLERI.map((saat) => {
-                                            const secili = mailSaatler.includes(saat);
-                                            return (
-                                                <button
-                                                    key={saat}
-                                                    type="button"
-                                                    className={`ta-m2-saat-btn${secili ? " ta-m2-saat-btn-active" : ""}`}
-                                                    onClick={() => mailSaatDegistir(saat, !secili)}
-                                                >
-                                                    {secili && (
-                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
-                                                            <polyline points="20 6 9 17 4 12" />
-                                                        </svg>
-                                                    )}
-                                                    {saat}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                    {mailSaatler.length > 0 && (
-                                        <div className="ta-m2-saat-ozet">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                                                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                                            </svg>
-                                            Gönderilecek: {mailSaatler.join(", ")}
-                                        </div>
-                                    )}
 
                                     <div className="ta-m2-divider" />
 
@@ -1014,12 +955,6 @@ export default function TedarikAnaliz() {
                                                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
                                                                         {g.kime}
                                                                     </span>
-                                                                    {(g.saatler || []).length > 0 && (
-                                                                        <span className="ta-m2-group-saatler">
-                                                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                                                                            {g.saatler.join(", ")}
-                                                                        </span>
-                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1027,11 +962,22 @@ export default function TedarikAnaliz() {
                                                             <div className="ta-m2-group-pill">{(g.proje_ids || []).length} proje</div>
                                                             <div className="ta-m2-group-actions">
                                                                 <button
+                                                                    className="ta-m2-group-action-btn"
+                                                                    onClick={() => grupRaporunuOutlookaGonder(g)}
+                                                                    disabled={outlookLoadingId === g.id}
+                                                                    title="Outlook Taslağı Aç"
+                                                                >
+                                                                    {outlookLoadingId === g.id ? (
+                                                                        <span className="ta-btn-spin">⟳</span>
+                                                                    ) : (
+                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 2 11 13" /><path d="m22 2-7 20-4-9-9-4 20-7z" /></svg>
+                                                                    )}
+                                                                </button>
+                                                                <button
                                                                     className="ta-m2-group-action-btn ta-m2-group-edit"
                                                                     onClick={() => mailGrupDuzenle(g)}
                                                                     title="Düzenle"
-                                                                >
-                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                                >                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                                 </button>
                                                                 <button
                                                                     className="ta-m2-group-action-btn ta-m2-group-del"
