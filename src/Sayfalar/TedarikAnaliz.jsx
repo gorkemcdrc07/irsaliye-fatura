@@ -164,6 +164,7 @@ export default function TedarikAnaliz() {
     const [dbBolgeler, setDbBolgeler] = useState([]);
     const [dbProjeler, setDbProjeler] = useState([]);
     const [mailGruplari, setMailGruplari] = useState([]);
+    const [mailKisileri, setMailKisileri] = useState([]);
     const [ayarPanelAcik, setAyarPanelAcik] = useState(false);
     const [ayarLoading, setAyarLoading] = useState(false);
     const [ayarMesaj, setAyarMesaj] = useState("");
@@ -176,9 +177,8 @@ export default function TedarikAnaliz() {
     const [mailGrupAdi, setMailGrupAdi] = useState("");
     const [mailKime, setMailKime] = useState("");
     const [mailSs, setMailSs] = useState("");
-    const [mailKonu, setMailKonu] = useState("");
-    const [mailBody, setMailBody] = useState("");
     const [mailProjeIds, setMailProjeIds] = useState([]);
+    const [yeniMailAdresi, setYeniMailAdresi] = useState("");
 
     // Düzenleme modu için
     // Düzenleme modu için
@@ -186,6 +186,8 @@ export default function TedarikAnaliz() {
 
     // Outlook'ta aç işlemi için
     const [outlookLoadingId, setOutlookLoadingId] = useState(null);
+
+    const [sonGonderilenGrupId, setSonGonderilenGrupId] = useState(null);
 
 
     async function ayarVerileriniCek() {
@@ -204,9 +206,14 @@ export default function TedarikAnaliz() {
                 .from("tedarik_mail_gruplari").select("*").order("created_at", { ascending: false });
             if (grupError) throw grupError;
 
+            const { data: kisiler, error: kisiError } = await supabase
+                .from("tedarik_mail_kisileri").select("*").order("email", { ascending: true });
+            if (kisiError) throw kisiError;
+
             setDbBolgeler(bolgeler || []);
             setDbProjeler(projeler || []);
             setMailGruplari(gruplar || []);
+            setMailKisileri(kisiler || []);
         } catch (e) {
             console.error("Ayar verileri çekilemedi:", e);
             setAyarMesaj(e?.message || "Ayar verileri çekilemedi.");
@@ -277,13 +284,79 @@ export default function TedarikAnaliz() {
         }
     }
 
+    function emailStringToList(value) {
+        return String(value || "")
+            .split(/[;,]/)
+            .map((x) => x.trim().toLowerCase())
+            .filter(Boolean);
+    }
+
+    function emailListToString(list) {
+        return [...new Set((list || []).map((x) => String(x).trim().toLowerCase()).filter(Boolean))].join(",");
+    }
+
+    function emailSeciliMi(tip, email) {
+        const liste = tip === "kime" ? emailStringToList(mailKime) : emailStringToList(mailSs);
+        return liste.includes(String(email || "").toLowerCase());
+    }
+
+    function mailKisiSecimiDegistir(tip, email, checked) {
+        const temizEmail = String(email || "").trim().toLowerCase();
+        if (!temizEmail) return;
+
+        if (tip === "kime") {
+            const liste = emailStringToList(mailKime);
+            const yeniListe = checked
+                ? [...liste, temizEmail]
+                : liste.filter((x) => x !== temizEmail);
+            setMailKime(emailListToString(yeniListe));
+            return;
+        }
+
+        const liste = emailStringToList(mailSs);
+        const yeniListe = checked
+            ? [...liste, temizEmail]
+            : liste.filter((x) => x !== temizEmail);
+        setMailSs(emailListToString(yeniListe));
+    }
+
+    async function yeniMailEkle() {
+        const email = yeniMailAdresi.trim().toLowerCase();
+        if (!email) {
+            setAyarMesaj("Mail adresi boş olamaz.");
+            return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setAyarMesaj("Geçerli bir mail adresi girin.");
+            return;
+        }
+
+        setAyarLoading(true);
+        setAyarMesaj("");
+
+        const { error } = await supabase
+            .from("tedarik_mail_kisileri")
+            .upsert([{ email, kaynak: "manuel" }], { onConflict: "email" });
+
+        setAyarLoading(false);
+
+        if (error) {
+            setAyarMesaj(error.message);
+            return;
+        }
+
+        setYeniMailAdresi("");
+        await ayarVerileriniCek();
+        setAyarMesaj("Mail adresi listeye eklendi.");
+    }
+
     function mailFormSifirla() {
         setMailGrupAdi("");
         setMailKime("");
         setMailSs("");
-        setMailKonu("");
-        setMailBody("");
         setMailProjeIds([]);
+        setYeniMailAdresi("");
         setDuzenleGrupId(null);
     }
 
@@ -292,8 +365,6 @@ export default function TedarikAnaliz() {
         setMailGrupAdi(g.grup_adi || "");
         setMailKime(g.kime || "");
         setMailSs(g.ss || "");
-        setMailKonu(g.konu || "");
-        setMailBody(g.body || "");
         setMailProjeIds(g.proje_ids || []);
         window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -320,10 +391,9 @@ export default function TedarikAnaliz() {
             grup_adi: mailGrupAdi.trim(),
             kime: mailKime.trim(),
             ss: mailSs.trim(),
-            konu: mailKonu.trim(),
-            body: mailBody.trim(),
             proje_ids: mailProjeIds.map(Number),
         };
+
 
         let dbError;
         if (duzenleGrupId) {
@@ -347,6 +417,51 @@ export default function TedarikAnaliz() {
         setAyarMesaj(duzenleGrupId ? "Mail grubu güncellendi." : "Mail grubu kaydedildi.");
     }
 
+    const SABAH_MAIL_METNI = `
+<p>Herkese Merhaba,</p>
+
+<p>
+Bir önceki iş gününe ait sorumluluğunuzdaki projelere ait siparişleri ve plaka ataması yaptığınız seferleri kontrolünüz için ekte paylaşıyoruz.
+</p>
+
+<p>İlgili raporda;</p>
+
+<ul>
+<li>
+Yükleme noktasına varışı sipariş yükleme tarihinden sonraki işgünü saat 06:00'dan sonra olan araçlara ait seferler <b>"Geç Tedarik"</b>
+</li>
+
+<li>
+Rapor yayınlanma saatinde henüz yükleme noktasına varış yapmayan araçlara ait seferler <b>"Tedarik Edilemeyen"</b>
+</li>
+
+<li>
+Rapor yayınlanma saatinde henüz plaka ataması yapılmamış siparişler <b>"Tedarik Edilemeyen"</b>
+</li>
+</ul>
+
+<p>
+Plaka ataması yapılmamış siparişlerde ya da plaka ataması yapılmış seferlerinizde herhangi bir uygunsuzluk tespit etmeniz halinde en geç saat 17:00'ye kadar gerekli düzeltmeleri yapmanızı ya da Müşteri Hizmetleri birimimiz ile iletişime geçmenizi bekliyoruz.
+</p>
+
+<p>
+Saat 18:00'de yayınlanacak final rapor, sorumluluğunuzdaki projelerle ilgili bir önceki işgününe ait <b>"Talep-Tedarik Performansı"</b> olarak kayıtlara otomatik olarak geçecektir.
+</p>
+
+<p>Bilgilerinize sunar, iyi çalışmalar dileriz.</p>
+`;
+
+    const AKSAM_MAIL_METNI = `
+<p>Herkese Merhaba,</p>
+
+<p>
+Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
+<b>"Talep-Tedarik Performansı"</b> olarak kayıtlara geçen final rapor eklidir.
+</p>
+
+<p>Bilgilerinize sunar, iyi çalışmalar dileriz.</p>
+`;
+
     async function grupRaporunuOutlookaGonder(grup) {
         setOutlookLoadingId(grup.id);
         setAyarMesaj("");
@@ -356,22 +471,34 @@ export default function TedarikAnaliz() {
                 projeIds: grup.proje_ids || [],
             });
 
-            const html = `
-                <div style="font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.5;">
-                    <p>Merhaba,</p>
-                    ${grup.body ? `<p>${String(grup.body).replace(/\n/g, "<br />")}</p>` : ""}
-                    ${rapor.tabloHtml || ""}
-                    <p>İyi çalışmalar.</p>
-                </div>
-            `;
+            const saat = new Date().getHours();
 
+            const oncekiGun = new Date();
+            oncekiGun.setDate(oncekiGun.getDate() - 1);
+
+            const tarihText = oncekiGun.toLocaleDateString("tr-TR");
+
+            const otomatikKonu = `${tarihText} Tarihli Tedarik Analiz Raporu Hk.`;
+
+            const mailMetni =
+                saat < 12
+                    ? SABAH_MAIL_METNI
+                    : AKSAM_MAIL_METNI;
+
+            const html = `
+<div style="font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
+    ${mailMetni}
+    ${rapor.tabloHtml || ""}
+</div>
+`;
             await outlookTaslakAc({
                 to: grup.kime,
                 cc: grup.ss,
-                subject: grup.konu || "Tedarik Analiz Raporu",
+                subject: otomatikKonu,
                 html,
             });
 
+            setSonGonderilenGrupId(grup.id);
             setAyarMesaj("Outlook açıldı. HTML gövde panoya kopyalandı, Outlook gövde alanına yapıştırabilirsiniz.");
         } catch (e) {
             console.error("Rapor/Outlook hatası:", e);
@@ -852,33 +979,107 @@ export default function TedarikAnaliz() {
                                     </div>
 
                                     {/* TEMEL BİLGİLER */}
-                                    <div className="ta-m2-mail-form">
+                                    <div className="ta-m2-mail-form ta-m2-mail-form-single">
                                         <div className="ta-m2-field">
                                             <label className="ta-m2-label">Grup Adı</label>
-                                            <input className="ta-m2-input" value={mailGrupAdi} onChange={(e) => setMailGrupAdi(e.target.value)} placeholder="Örn: Gebze Haftalık" />
-                                        </div>
-                                        <div className="ta-m2-field">
-                                            <label className="ta-m2-label">Konu</label>
-                                            <input className="ta-m2-input" value={mailKonu} onChange={(e) => setMailKonu(e.target.value)} placeholder="Mail konusu" />
-                                        </div>
-                                        <div className="ta-m2-field">
-                                            <label className="ta-m2-label">Kime</label>
-                                            <input className="ta-m2-input" value={mailKime} onChange={(e) => setMailKime(e.target.value)} placeholder="alici@sirket.com" />
-                                        </div>
-                                        <div className="ta-m2-field">
-                                            <label className="ta-m2-label">CC (SS)</label>
-                                            <input className="ta-m2-input" value={mailSs} onChange={(e) => setMailSs(e.target.value)} placeholder="cc@sirket.com" />
+                                            <input
+                                                className="ta-m2-input"
+                                                value={mailGrupAdi}
+                                                onChange={(e) => setMailGrupAdi(e.target.value)}
+                                                placeholder="Örn: Gebze Haftalık"
+                                            />
                                         </div>
                                     </div>
 
-                                    <div className="ta-m2-field" style={{ marginTop: "10px" }}>
-                                        <label className="ta-m2-label">Ek Not (Mail Gövdesi)</label>
-                                        <textarea
-                                            className="ta-m2-textarea"
-                                            value={mailBody}
-                                            onChange={(e) => setMailBody(e.target.value)}
-                                            placeholder="Rapora ek not eklemek isterseniz buraya yazın (opsiyonel). Tablo otomatik oluşturulur."
-                                        />
+                                    <div className="ta-m2-divider" />
+
+                                    {/* MAIL KİŞİLERİ */}
+                                    <div className="ta-m2-section-head">
+                                        <div>
+                                            <h3>Mail Kişileri</h3>
+                                            <p>Kime ve CC alanlarını listeden seçin. Yeni mail adresi ekleyebilirsiniz.</p>
+                                        </div>
+                                        <span className="ta-m2-count">{mailKisileri.length} kişi</span>
+                                    </div>
+
+                                    <div className="ta-m2-mail-add-row">
+                                        <div className="ta-m2-field">
+                                            <label className="ta-m2-label">Yeni Mail Adresi</label>
+                                            <input
+                                                className="ta-m2-input"
+                                                value={yeniMailAdresi}
+                                                onChange={(e) => setYeniMailAdresi(e.target.value)}
+                                                placeholder="ornek@odaklojistik.com.tr"
+                                                onKeyDown={(e) => e.key === "Enter" && yeniMailEkle()}
+                                            />
+                                        </div>
+                                        <button
+                                            className="ta-m2-action-btn ta-m2-action-primary"
+                                            onClick={yeniMailEkle}
+                                            disabled={ayarLoading}
+                                        >
+                                            + Mail Ekle
+                                        </button>
+                                    </div>
+
+                                    <div className="ta-m2-mail-listbox-grid">
+                                        <div className="ta-m2-listbox-card">
+                                            <div className="ta-m2-listbox-head">
+                                                <div>
+                                                    <strong>Kime</strong>
+                                                    <span>Mailin gideceği ana alıcıları seçin</span>
+                                                </div>
+                                                <em>{emailStringToList(mailKime).length} seçili</em>
+                                            </div>
+
+                                            <div className="ta-m2-listbox">
+                                                {mailKisileri.length === 0 ? (
+                                                    <p className="ta-m2-empty">Henüz mail kişisi yok. Yukarıdan ekleyin.</p>
+                                                ) : mailKisileri.map((kisi) => {
+                                                    const secili = emailSeciliMi("kime", kisi.email);
+                                                    return (
+                                                        <button
+                                                            key={`kime-${kisi.id || kisi.email}`}
+                                                            type="button"
+                                                            className={`ta-m2-listbox-option${secili ? " active" : ""}`}
+                                                            onClick={() => mailKisiSecimiDegistir("kime", kisi.email, !secili)}
+                                                        >
+                                                            <span className="ta-m2-listbox-check">{secili ? "✓" : ""}</span>
+                                                            <span className="ta-m2-listbox-email">{kisi.email}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        <div className="ta-m2-listbox-card">
+                                            <div className="ta-m2-listbox-head">
+                                                <div>
+                                                    <strong>CC</strong>
+                                                    <span>Bilgiye eklemek istediğiniz kişileri seçin</span>
+                                                </div>
+                                                <em>{emailStringToList(mailSs).length} seçili</em>
+                                            </div>
+
+                                            <div className="ta-m2-listbox">
+                                                {mailKisileri.length === 0 ? (
+                                                    <p className="ta-m2-empty">Henüz mail kişisi yok. Yukarıdan ekleyin.</p>
+                                                ) : mailKisileri.map((kisi) => {
+                                                    const secili = emailSeciliMi("cc", kisi.email);
+                                                    return (
+                                                        <button
+                                                            key={`cc-${kisi.id || kisi.email}`}
+                                                            type="button"
+                                                            className={`ta-m2-listbox-option${secili ? " active" : ""}`}
+                                                            onClick={() => mailKisiSecimiDegistir("cc", kisi.email, !secili)}
+                                                        >
+                                                            <span className="ta-m2-listbox-check">{secili ? "✓" : ""}</span>
+                                                            <span className="ta-m2-listbox-email">{kisi.email}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="ta-m2-divider" />
@@ -942,14 +1143,21 @@ export default function TedarikAnaliz() {
                                             </div>
                                             <div className="ta-m2-group-list">
                                                 {mailGruplari.map((g) => (
-                                                    <div key={g.id} className={`ta-m2-group-card${duzenleGrupId === g.id ? " ta-m2-group-card-editing" : ""}`}>
+                                                    <div
+                                                        key={g.id}
+                                                        className={`
+        ta-m2-group-card
+        ${duzenleGrupId === g.id ? " ta-m2-group-card-editing" : ""}
+        ${outlookLoadingId === g.id ? " ta-m2-group-card-sending" : ""}
+        ${sonGonderilenGrupId === g.id ? " ta-m2-group-card-sent" : ""}
+    `}
+                                                    >
                                                         <div className="ta-m2-group-card-left">
                                                             <div className="ta-m2-group-avatar">
                                                                 {g.grup_adi.slice(0, 2).toUpperCase()}
                                                             </div>
                                                             <div className="ta-m2-group-info">
                                                                 <div className="ta-m2-group-name">{g.grup_adi}</div>
-                                                                <div className="ta-m2-group-konu">{g.konu || "Konu belirtilmemiş"}</div>
                                                                 <div className="ta-m2-group-meta">
                                                                     <span className="ta-m2-group-to-label">
                                                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>

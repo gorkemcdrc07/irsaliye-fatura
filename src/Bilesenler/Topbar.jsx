@@ -10,13 +10,11 @@ function getPermissions() {
 }
 
 const NAV_ITEMS = [
-    { path: "/", label: "Ana Sayfa", icon: "ti-layout-dashboard", perm: "evrak" },
     { path: "/tedarik-analiz", label: "Tedarik Analiz", icon: "ti-chart-bar", perm: "tedarikAnaliz" },
     { path: "/teslim-evraklari", label: "Teslim Evrakları", icon: "ti-file-description", perm: "evrak" },
     { path: "/fatura", label: "Fatura", icon: "ti-receipt", perm: "fatura" },
     { path: "/kullanici-yonetimi", label: "Kullanıcı Yönetimi", icon: "ti-users", perm: "admin" },
 ];
-
 function Topbar() {
     const navigate = useNavigate();
     const location = useLocation();

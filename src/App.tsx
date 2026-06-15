@@ -8,7 +8,6 @@ import {
 } from "react-router-dom";
 
 import Topbar from "./Bilesenler/Topbar";
-import AnaSayfa from "./Sayfalar/AnaSayfa";
 import TedarikAnaliz from "./Sayfalar/TedarikAnaliz";
 import TeslimEvraklari from "./Sayfalar/TeslimEvraklari";
 import Fatura from "./Sayfalar/Fatura";
@@ -17,14 +16,24 @@ import KullaniciYonetimi from "./Sayfalar/KullaniciYonetimi";
 
 function getPermissions(): string[] {
     try {
-        return JSON.parse(localStorage.getItem("permissions") || "[]");
+        const raw = JSON.parse(localStorage.getItem("permissions") || "[]");
+        return Array.isArray(raw) ? raw : [];
     } catch {
         return [];
     }
 }
 
+function normalizeValue(value: unknown): string {
+    return String(value || "").trim().toLowerCase();
+}
+
+function hasPermission(permissions: string[], ...keys: string[]): boolean {
+    const normalizedPermissions = permissions.map(normalizeValue);
+    return keys.some((key) => normalizedPermissions.includes(normalizeValue(key)));
+}
+
 function getRole(): string {
-    return localStorage.getItem("role") || "kullanici";
+    return normalizeValue(localStorage.getItem("role") || "kullanici");
 }
 
 function getDefaultPath(): string {
@@ -32,15 +41,28 @@ function getDefaultPath(): string {
     const role = getRole();
 
     if (role === "admin") return "/kullanici-yonetimi";
-    if (permissions.includes("evrak")) return "/";
-    if (permissions.includes("fatura")) return "/fatura";
+
+    if (
+        hasPermission(
+            permissions,
+            "tedarikAnaliz",
+            "tedarik_analiz",
+            "tedarik-analiz",
+            "tedarik"
+        )
+    ) {
+        return "/tedarik-analiz";
+    }
+
+    if (hasPermission(permissions, "evrak")) return "/teslim-evraklari";
+    if (hasPermission(permissions, "fatura")) return "/fatura";
 
     return "/login";
 }
 
 type ProtectedRouteProps = {
     children: React.ReactNode;
-    permission?: string;
+    permission?: string | string[];
     role?: string;
 };
 
@@ -53,12 +75,16 @@ function ProtectedRoute({ children, permission, role }: ProtectedRouteProps) {
         return <Navigate to="/login" replace />;
     }
 
-    if (role && userRole !== role) {
+    if (role && userRole !== normalizeValue(role)) {
         return <Navigate to={getDefaultPath()} replace />;
     }
 
-    if (permission && !permissions.includes(permission)) {
-        return <Navigate to={getDefaultPath()} replace />;
+    if (permission) {
+        const permissionList = Array.isArray(permission) ? permission : [permission];
+
+        if (!hasPermission(permissions, ...permissionList)) {
+            return <Navigate to={getDefaultPath()} replace />;
+        }
     }
 
     return <>{children}</>;
@@ -88,17 +114,20 @@ function Layout() {
 
                 <Route
                     path="/"
-                    element={
-                        <ProtectedRoute permission="evrak">
-                            <AnaSayfa />
-                        </ProtectedRoute>
-                    }
+                    element={<Navigate to={getDefaultPath()} replace />}
                 />
 
                 <Route
                     path="/tedarik-analiz"
                     element={
-                        <ProtectedRoute permission="evrak">
+                        <ProtectedRoute
+                            permission={[
+                                "tedarikAnaliz",
+                                "tedarik_analiz",
+                                "tedarik-analiz",
+                                "tedarik",
+                            ]}
+                        >
                             <TedarikAnaliz />
                         </ProtectedRoute>
                     }

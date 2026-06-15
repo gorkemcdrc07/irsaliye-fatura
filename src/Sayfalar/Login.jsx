@@ -10,6 +10,30 @@ const AUTH_MESSAGES = [
     "Yönlendiriliyor...",
 ];
 
+function yetkiVar(permissions, ...keys) {
+    const temizYetkiler = (permissions || []).map((p) =>
+        String(p).trim().toLowerCase()
+    );
+
+    return keys.some((key) =>
+        temizYetkiler.includes(String(key).trim().toLowerCase())
+    );
+}
+
+function getDefaultPath(role, permissions) {
+    const temizRole = String(role || "kullanici").trim().toLowerCase();
+
+    if (temizRole === "admin") return "/kullanici-yonetimi";
+
+    if (yetkiVar(permissions, "tedarik_analiz", "tedarik", "tedarik-analiz", "tedarikAnaliz")) {
+        return "/tedarik-analiz";
+    }
+
+    if (yetkiVar(permissions, "evrak")) return "/";
+    if (yetkiVar(permissions, "fatura")) return "/fatura";
+
+    return null;
+}
 function AuthTransition({ user, onComplete }) {
     const [progress, setProgress] = useState(0);
     const [msgIndex, setMsgIndex] = useState(0);
@@ -25,9 +49,11 @@ function AuthTransition({ user, onComplete }) {
             setProgress(Math.min(pct, 100));
 
             const ni = Math.floor((pct / 100) * AUTH_MESSAGES.length);
+
             if (ni !== mi && ni < AUTH_MESSAGES.length) {
                 mi = ni;
                 setMsgVisible(false);
+
                 setTimeout(() => {
                     setMsgIndex(mi);
                     setMsgVisible(true);
@@ -43,8 +69,8 @@ function AuthTransition({ user, onComplete }) {
         return () => clearInterval(intervalRef.current);
     }, [onComplete]);
 
-    const initials = user.user_name
-        .split(/[._]/)
+    const initials = String(user?.user_name || "K")
+        .split(/[._\s]/)
         .slice(0, 2)
         .map((p) => p[0]?.toUpperCase() ?? "")
         .join("");
@@ -53,15 +79,20 @@ function AuthTransition({ user, onComplete }) {
         <div className="auth-transition">
             <div className="at-inner">
                 <div className="at-avatar">{initials}</div>
+
                 <div className="at-name">{user.user_name}</div>
+
                 <div className="at-role">
-                    {user.role === "admin"
+                    {String(user.role || "").toLowerCase() === "admin"
                         ? "Admin"
                         : user.permissions?.join(" · ") || "Kullanıcı"}
                 </div>
 
                 <div className="at-bar-wrap">
-                    <div className="at-bar-fill" style={{ width: `${progress}%` }} />
+                    <div
+                        className="at-bar-fill"
+                        style={{ width: `${progress}%` }}
+                    />
                 </div>
 
                 <div className={`at-msg ${msgVisible ? "visible" : ""}`}>
@@ -86,7 +117,10 @@ function Login() {
         e.preventDefault();
         setHata("");
 
-        if (!kullaniciAdi.trim() || !sifre.trim()) {
+        const temizKullaniciAdi = kullaniciAdi.trim();
+        const temizSifre = sifre.trim();
+
+        if (!temizKullaniciAdi || !temizSifre) {
             setHata("Kullanıcı adı ve şifre zorunludur.");
             return;
         }
@@ -96,9 +130,11 @@ function Login() {
         try {
             const { data: user, error } = await supabase
                 .from("users")
-                .select("id, user_name, password, customer_id, is_active, permissions, role, customer_order_no_rule")
-                .eq("user_name", kullaniciAdi.trim())
-                .eq("password", sifre.trim())
+                .select(
+                    "id, user_name, password, customer_id, is_active, permissions, role, customer_order_no_rule"
+                )
+                .eq("user_name", temizKullaniciAdi)
+                .eq("password", temizSifre)
                 .eq("is_active", true)
                 .maybeSingle();
 
@@ -112,10 +148,16 @@ function Login() {
                 return;
             }
 
-            localStorage.setItem("kullaniciAdi", user.user_name);
+            const permissions = Array.isArray(user.permissions)
+                ? user.permissions
+                : [];
+
+            const role = user.role || "kullanici";
+
+            localStorage.setItem("kullaniciAdi", user.user_name || "");
             localStorage.setItem("customerId", user.customer_id || "");
-            localStorage.setItem("permissions", JSON.stringify(user.permissions || []));
-            localStorage.setItem("role", user.role || "kullanici");
+            localStorage.setItem("permissions", JSON.stringify(permissions));
+            localStorage.setItem("role", role);
             localStorage.setItem(
                 "customerOrderNoRule",
                 String(user.customer_order_no_rule === true)
@@ -123,10 +165,20 @@ function Login() {
             localStorage.setItem("token", "supabase-login");
             localStorage.setItem("tokenTime", Date.now().toString());
 
+            const userForState = {
+                ...user,
+                permissions,
+                role,
+            };
+
+            console.log("LOGIN USER:", userForState);
+            console.log("PERMISSIONS:", permissions);
+            console.log("ROLE:", role);
+
             setPhase("out");
 
             setTimeout(() => {
-                setAuthedUser(user);
+                setAuthedUser(userForState);
                 setPhase("auth");
             }, 320);
         } catch (err) {
@@ -140,22 +192,26 @@ function Login() {
         const permissions = authedUser?.permissions || [];
         const role = authedUser?.role || "kullanici";
 
-        if (role === "admin") {
-            navigate("/kullanici-yonetimi", { replace: true });
-        } else if (permissions.includes("evrak")) {
-            navigate("/", { replace: true });
-        } else if (permissions.includes("fatura")) {
-            navigate("/fatura", { replace: true });
-        } else {
-            setAuthedUser(null);
-            setPhase("login");
-            setLoading(false);
-            setHata("Bu kullanıcı için sayfa yetkisi tanımlanmamış.");
+        const path = getDefaultPath(role, permissions);
+
+        if (path) {
+            navigate(path, { replace: true });
+            return;
         }
+
+        setAuthedUser(null);
+        setPhase("login");
+        setLoading(false);
+        setHata("Bu kullanıcı için sayfa yetkisi tanımlanmamış.");
     }
 
     if (phase === "auth" && authedUser) {
-        return <AuthTransition user={authedUser} onComplete={handleAuthComplete} />;
+        return (
+            <AuthTransition
+                user={authedUser}
+                onComplete={handleAuthComplete}
+            />
+        );
     }
 
     return (
@@ -169,6 +225,7 @@ function Login() {
                         <p>Evrak takip ve operasyon yönetim paneli</p>
                     </div>
                 </div>
+
                 <div className="brand-footer">
                     <span className="status-dot" />
                     Sistem aktif

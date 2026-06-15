@@ -1227,6 +1227,83 @@
         background: #94a3b8;
     }
 
+.ta-m2-group-card-sending {
+    border: 2px solid #2563eb !important;
+    background: #eff6ff !important;
+}
+
+.ta-m2-group-card-sent {
+    border: 2px solid #16a34a !important;
+    background: #f0fdf4 !important;
+}
+
+.ta-m2-proje-picker {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.ta-m2-picker-group {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 12px;
+}
+
+.ta-m2-picker-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+    .ta-m2-picker-group-head span {
+        background: #e2e8f0;
+        color: #475569;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+    }
+
+.ta-m2-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+}
+
+    .ta-m2-picker-row:hover {
+        border-color: #0f172a;
+        background: #f1f5f9;
+    }
+
+.ta-m2-checkbox {
+    width: 15px;
+    height: 15px;
+    accent-color: #0f172a;
+    flex-shrink: 0;
+}
+
+.ta-m2-picker-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #334155;
+    line-height: 1.3;
+}
+
+@media (max-width: 720px) {
+    .ta-m2-proje-picker {
+        grid-template-columns: 1fr;
+    }
+}
 /* ════════════════════════════════════════════════════════
    RESPONSİVE
    ════════════════════════════════════════════════════════ */
@@ -1343,5 +1420,309 @@
 
     .ta-btn-spin {
         animation: none;
+    }
+}
+
+/* ─── MAIL KİŞİ SEÇİMİ ─── */
+.ta-m2-mail-form-single {
+    grid-template-columns: 1fr;
+}
+
+.ta-m2-mail-add-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 14px;
+}
+
+.ta-m2-mail-selected-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.ta-m2-selected-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 13px;
+    padding: 11px 12px;
+    min-height: 78px;
+}
+
+.ta-m2-selected-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 800;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    margin-bottom: 8px;
+}
+
+    .ta-m2-selected-title span {
+        background: #e2e8f0;
+        color: #334155;
+        border-radius: 999px;
+        padding: 1px 7px;
+        font-size: 10px;
+    }
+
+.ta-m2-selected-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ta-m2-selected-empty {
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.ta-m2-selected-chip {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color .13s, background .13s;
+}
+
+    .ta-m2-selected-chip:hover {
+        border-color: #dc2626;
+        background: #fef2f2;
+    }
+
+.ta-m2-mail-people-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    max-height: 300px;
+    overflow: auto;
+    padding: 2px 4px 2px 0;
+}
+
+    .ta-m2-mail-people-list::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    .ta-m2-mail-people-list::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+
+    .ta-m2-mail-people-list::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+
+.ta-m2-mail-person-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 11px;
+    padding: 9px 10px;
+    transition: border-color .13s, background .13s;
+}
+
+    .ta-m2-mail-person-row:hover {
+        border-color: #94a3b8;
+        background: #f8fafc;
+    }
+
+.ta-m2-mail-person-email {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+}
+
+.ta-m2-mail-person-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+}
+
+.ta-m2-mini-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #64748b;
+    cursor: pointer;
+    user-select: none;
+}
+
+    .ta-m2-mini-check input {
+        width: 13px;
+        height: 13px;
+        accent-color: #0f172a;
+    }
+
+@media (max-width: 720px) {
+    .ta-m2-mail-add-row,
+    .ta-m2-mail-selected-wrap,
+    .ta-m2-mail-people-list {
+        grid-template-columns: 1fr;
+    }
+
+        .ta-m2-mail-add-row .ta-m2-action-btn {
+            justify-content: center;
+            width: 100%;
+        }
+}
+
+
+/* ─── TEMİZ MAİL LİSTBOX SEÇİMİ ─── */
+.ta-m2-mail-listbox-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.ta-m2-listbox-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+
+.ta-m2-listbox-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px 14px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+    .ta-m2-listbox-head strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 2px;
+    }
+
+    .ta-m2-listbox-head span {
+        display: block;
+        font-size: 11.5px;
+        font-weight: 500;
+        color: #64748b;
+        line-height: 1.35;
+    }
+
+    .ta-m2-listbox-head em {
+        flex-shrink: 0;
+        font-style: normal;
+        font-size: 11px;
+        font-weight: 800;
+        color: #0f172a;
+        background: #e2e8f0;
+        border-radius: 999px;
+        padding: 3px 8px;
+    }
+
+.ta-m2-listbox {
+    height: 260px;
+    overflow-y: auto;
+    padding: 8px;
+    background: #ffffff;
+}
+
+    .ta-m2-listbox::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    .ta-m2-listbox::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+
+    .ta-m2-listbox::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+    }
+
+.ta-m2-listbox-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border: 1px solid transparent;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 10px;
+    padding: 9px 10px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    text-align: left;
+    font-family: "Inter", sans-serif;
+    transition: background 0.13s, border-color 0.13s, color 0.13s;
+}
+
+    .ta-m2-listbox-option:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+
+    .ta-m2-listbox-option.active {
+        background: #0f172a;
+        border-color: #0f172a;
+        color: #ffffff;
+    }
+
+.ta-m2-listbox-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    flex-shrink: 0;
+}
+
+.ta-m2-listbox-option.active .ta-m2-listbox-check {
+    border-color: #ffffff;
+    background: #ffffff;
+    color: #0f172a;
+}
+
+.ta-m2-listbox-email {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+@media (max-width: 720px) {
+    .ta-m2-mail-listbox-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ta-m2-listbox {
+        height: 220px;
     }
 }
