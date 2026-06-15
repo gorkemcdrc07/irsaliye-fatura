@@ -28,8 +28,6 @@ const TMS_DESPATCH_API_URL =
 
 const TOKEN = import.meta.env.VITE_TMS_TOKEN;
 const DEFAULT_USER_ID = Number(import.meta.env.VITE_TMS_USER_ID || 85);
-
-
 const REGIONS = {
     TRAKYA: [
         "BUNGE LÜLEBURGAZ FTL", "BUNGE GEBZE FTL", "BUNGE PALET", "REKA FTL", "EKSUN GIDA FTL",
@@ -180,15 +178,17 @@ export default function TedarikAnaliz() {
     const [mailProjeIds, setMailProjeIds] = useState([]);
     const [yeniMailAdresi, setYeniMailAdresi] = useState("");
 
-    // Düzenleme modu için
-    // Düzenleme modu için
     const [duzenleGrupId, setDuzenleGrupId] = useState(null);
-
-    // Outlook'ta aç işlemi için
     const [outlookLoadingId, setOutlookLoadingId] = useState(null);
-
     const [sonGonderilenGrupId, setSonGonderilenGrupId] = useState(null);
 
+    // YENİ: Arama state'leri
+    const [kimeArama, setKimeArama] = useState("");
+    const [ccArama, setCcArama] = useState("");
+    const [projeArama, setProjeArama] = useState("");
+    const [grupArama, setGrupArama] = useState("");
+    const [suruklenenProjeId, setSuruklenenProjeId] = useState(null);
+    const [yonetimArama, setYonetimArama] = useState("");
 
     async function ayarVerileriniCek() {
         setAyarLoading(true);
@@ -252,6 +252,137 @@ export default function TedarikAnaliz() {
         setYeniProjeAdi("");
         await ayarVerileriniCek();
         setAyarMesaj("Proje kaydedildi.");
+    }
+
+    function bolgeProjeSayisi(bolgeId) {
+        return dbProjeler.filter((p) => p.bolge_id === bolgeId).length;
+    }
+
+    async function projeSil(projeId) {
+        if (!window.confirm("Bu projeyi silmek istediğinizden emin misiniz?")) return;
+
+        setAyarLoading(true);
+        setAyarMesaj("");
+
+        try {
+            const { error } = await supabase
+                .from("tedarik_projeler")
+                .delete()
+                .eq("id", projeId);
+
+            if (error) throw error;
+
+            const guncelGruplar = mailGruplari
+                .filter((g) => (g.proje_ids || []).includes(projeId))
+                .map((g) =>
+                    supabase
+                        .from("tedarik_mail_gruplari")
+                        .update({
+                            proje_ids: (g.proje_ids || []).filter((id) => id !== projeId),
+                        })
+                        .eq("id", g.id)
+                );
+
+            await Promise.all(guncelGruplar);
+
+            if (mailProjeIds.includes(projeId)) {
+                setMailProjeIds((prev) => prev.filter((id) => id !== projeId));
+            }
+
+            await ayarVerileriniCek();
+            setAyarMesaj("Proje silindi.");
+        } catch (e) {
+            setAyarMesaj(e?.message || "Proje silinemedi.");
+        } finally {
+            setAyarLoading(false);
+        }
+    }
+
+    async function bolgeSil(bolgeId) {
+        const projeSayisi = bolgeProjeSayisi(bolgeId);
+
+        const mesaj = projeSayisi > 0
+            ? `Bu bölgede ${projeSayisi} proje var. Bölge silinirse projeler de silinir. Emin misiniz?`
+            : "Bu bölgeyi silmek istediğinizden emin misiniz?";
+
+        if (!window.confirm(mesaj)) return;
+
+        setAyarLoading(true);
+        setAyarMesaj("");
+
+        try {
+            const silinecekProjeIds = dbProjeler
+                .filter((p) => p.bolge_id === bolgeId)
+                .map((p) => p.id);
+
+            if (silinecekProjeIds.length > 0) {
+                const { error: projeError } = await supabase
+                    .from("tedarik_projeler")
+                    .delete()
+                    .in("id", silinecekProjeIds);
+
+                if (projeError) throw projeError;
+            }
+
+            const { error: bolgeError } = await supabase
+                .from("tedarik_bolgeler")
+                .delete()
+                .eq("id", bolgeId);
+
+            if (bolgeError) throw bolgeError;
+
+            const guncelGruplar = mailGruplari.map((g) => ({
+                id: g.id,
+                proje_ids: (g.proje_ids || []).filter((id) => !silinecekProjeIds.includes(id)),
+            }));
+
+            await Promise.all(
+                guncelGruplar.map((g) =>
+                    supabase
+                        .from("tedarik_mail_gruplari")
+                        .update({ proje_ids: g.proje_ids })
+                        .eq("id", g.id)
+                )
+            );
+
+            setMailProjeIds((prev) => prev.filter((id) => !silinecekProjeIds.includes(id)));
+
+            await ayarVerileriniCek();
+            setAyarMesaj("Bölge silindi.");
+        } catch (e) {
+            setAyarMesaj(e?.message || "Bölge silinemedi.");
+        } finally {
+            setAyarLoading(false);
+        }
+    }
+
+    async function projeBolgeDegistir(projeId, yeniBolgeId) {
+        if (!projeId || !yeniBolgeId) return;
+
+        const proje = dbProjeler.find((p) => p.id === Number(projeId));
+        if (!proje || proje.bolge_id === yeniBolgeId) {
+            setSuruklenenProjeId(null);
+            return;
+        }
+
+        setAyarLoading(true);
+        setAyarMesaj("");
+
+        const { error } = await supabase
+            .from("tedarik_projeler")
+            .update({ bolge_id: yeniBolgeId })
+            .eq("id", projeId);
+
+        setAyarLoading(false);
+
+        if (error) {
+            setAyarMesaj(error.message);
+            return;
+        }
+
+        setSuruklenenProjeId(null);
+        await ayarVerileriniCek();
+        setAyarMesaj("Proje başka bölgeye taşındı.");
     }
 
     async function varsayilanBolgeProjeleriAktar() {
@@ -358,6 +489,9 @@ export default function TedarikAnaliz() {
         setMailProjeIds([]);
         setYeniMailAdresi("");
         setDuzenleGrupId(null);
+        setKimeArama("");
+        setCcArama("");
+        setProjeArama("");
     }
 
     function mailGrupDuzenle(g) {
@@ -366,6 +500,9 @@ export default function TedarikAnaliz() {
         setMailKime(g.kime || "");
         setMailSs(g.ss || "");
         setMailProjeIds(g.proje_ids || []);
+        setKimeArama("");
+        setCcArama("");
+        setProjeArama("");
         window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
@@ -393,7 +530,6 @@ export default function TedarikAnaliz() {
             ss: mailSs.trim(),
             proje_ids: mailProjeIds.map(Number),
         };
-
 
         let dbError;
         if (duzenleGrupId) {
@@ -470,6 +606,7 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
             const rapor = await tedarikRaporuOlusturFrontend({
                 projeIds: grup.proje_ids || [],
             });
+            rapor.excelIndir?.();
 
             const saat = new Date().getHours();
 
@@ -508,16 +645,12 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
         }
     }
 
-
-
     function mailProjeSecimiDegistir(projeId, checked) {
         setMailProjeIds((prev) => {
             if (checked) return prev.includes(projeId) ? prev : [...prev, projeId];
             return prev.filter((id) => id !== projeId);
         });
     }
-
-
 
     async function handleVerileriCek() {
         setLoading(true);
@@ -654,6 +787,17 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
         sum.perf = sum.plan > 0 ? Math.round((sum.zamaninda / sum.plan) * 100) : 0;
         return sum;
     }, [satirlar]);
+
+    // Filtrelenmiş kişi listeleri
+    const kimeFiltreli = mailKisileri.filter(k =>
+        k.email.toLowerCase().includes(kimeArama.toLowerCase())
+    );
+    const ccFiltreli = mailKisileri.filter(k =>
+        k.email.toLowerCase().includes(ccArama.toLowerCase())
+    );
+    const grupFiltreli = mailGruplari.filter(g =>
+        g.grup_adi.toLowerCase().includes(grupArama.toLowerCase())
+    );
 
     return (
         <div className="ta-root">
@@ -822,8 +966,7 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                         {/* TABS */}
                         <div className="ta-m2-tabs">
                             {[
-                                { key: "bolge", icon: "🗺", label: "Bölgeler" },
-                                { key: "proje", icon: "📌", label: "Projeler" },
+                                { key: "bolge", icon: "🗺", label: "Bölgeler & Projeler" },
                                 { key: "mail", icon: "📧", label: "Mail Grupları" },
                             ].map((t) => (
                                 <button
@@ -850,114 +993,181 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                         {/* TAB İÇERİĞİ */}
                         <div className="ta-m2-body">
 
-                            {/* ═══ BÖLGE TAB ═══ */}
+                            {/* ═══ BÖLGE & PROJE YÖNETİMİ ═══ */}
                             {ayarTab === "bolge" && (
                                 <div className="ta-m2-section">
                                     <div className="ta-m2-section-head">
                                         <div>
-                                            <h3>Yeni Bölge</h3>
-                                            <p>Bölge adını girerek sisteme ekleyin.</p>
+                                            <h3>Bölgeler & Projeler</h3>
+                                            <p>Bölge/proje ekleyin, silin veya projeleri sürükleyerek başka bölgeye taşıyın.</p>
                                         </div>
-                                    </div>
-                                    <div className="ta-m2-form-row">
-                                        <div className="ta-m2-field">
-                                            <label className="ta-m2-label">Bölge Adı</label>
+
+                                        <div className="ta-m2-search-mini-wrap" style={{ width: "220px" }}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                <circle cx="11" cy="11" r="8" />
+                                                <path d="m21 21-4.35-4.35" />
+                                            </svg>
                                             <input
-                                                className="ta-m2-input"
-                                                value={yeniBolgeAdi}
-                                                onChange={(e) => setYeniBolgeAdi(e.target.value)}
-                                                placeholder="Örn: TRAKYA"
-                                                onKeyDown={(e) => e.key === "Enter" && bolgeEkle()}
+                                                className="ta-m2-search-mini-input"
+                                                value={yonetimArama}
+                                                onChange={(e) => setYonetimArama(e.target.value)}
+                                                placeholder="Bölge veya proje ara..."
                                             />
                                         </div>
-                                        <button className="ta-m2-action-btn ta-m2-action-primary" onClick={bolgeEkle} disabled={ayarLoading}>
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                                            Bölge Ekle
-                                        </button>
+                                    </div>
+
+                                    <div className="ta-m2-manager-top">
+                                        <div className="ta-m2-add-card">
+                                            <label className="ta-m2-label">Yeni Bölge</label>
+                                            <div className="ta-m2-inline">
+                                                <input
+                                                    className="ta-m2-input"
+                                                    value={yeniBolgeAdi}
+                                                    onChange={(e) => setYeniBolgeAdi(e.target.value)}
+                                                    placeholder="Örn: ANKARA"
+                                                    onKeyDown={(e) => e.key === "Enter" && bolgeEkle()}
+                                                />
+                                                <button
+                                                    className="ta-m2-action-btn ta-m2-action-primary"
+                                                    onClick={bolgeEkle}
+                                                    disabled={ayarLoading}
+                                                >
+                                                    Ekle
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="ta-m2-add-card">
+                                            <label className="ta-m2-label">Yeni Proje</label>
+                                            <div className="ta-m2-inline">
+                                                <select
+                                                    className="ta-m2-select"
+                                                    value={projeBolgeId}
+                                                    onChange={(e) => setProjeBolgeId(e.target.value)}
+                                                >
+                                                    <option value="">Bölge seç</option>
+                                                    {dbBolgeler.map((b) => (
+                                                        <option key={b.id} value={b.id}>{b.bolge_adi}</option>
+                                                    ))}
+                                                </select>
+
+                                                <input
+                                                    className="ta-m2-input"
+                                                    value={yeniProjeAdi}
+                                                    onChange={(e) => setYeniProjeAdi(e.target.value)}
+                                                    placeholder="Proje adı"
+                                                    onKeyDown={(e) => e.key === "Enter" && projeEkle()}
+                                                />
+
+                                                <button
+                                                    className="ta-m2-action-btn ta-m2-action-primary"
+                                                    onClick={projeEkle}
+                                                    disabled={ayarLoading}
+                                                >
+                                                    Ekle
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="ta-m2-divider" />
 
                                     <div className="ta-m2-section-head">
-                                        <h3>Mevcut Bölgeler <span className="ta-m2-count">{dbBolgeler.length}</span></h3>
-                                        <button className="ta-m2-action-btn ta-m2-action-ghost" onClick={varsayilanBolgeProjeleriAktar} disabled={ayarLoading}>
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                                        <div>
+                                            <h3>
+                                                Mevcut Yapı
+                                                <span className="ta-m2-count">{dbBolgeler.length} bölge</span>
+                                                <span className="ta-m2-count">{dbProjeler.length} proje</span>
+                                            </h3>
+                                            <p>Projeyi tutup başka bölge kartına bırakarak bölgesini değiştirebilirsiniz.</p>
+                                        </div>
+
+                                        <button
+                                            className="ta-m2-action-btn ta-m2-action-ghost"
+                                            onClick={varsayilanBolgeProjeleriAktar}
+                                            disabled={ayarLoading}
+                                        >
                                             Varsayılanları Aktar
                                         </button>
                                     </div>
-                                    <div className="ta-m2-chip-list">
-                                        {dbBolgeler.length === 0
-                                            ? <p className="ta-m2-empty">Henüz bölge yok. Yukarıdan ekleyin veya varsayılanları aktarın.</p>
-                                            : dbBolgeler.map((b) => (
-                                                <div key={b.id} className="ta-m2-chip">
-                                                    <span className="ta-m2-chip-dot" />
-                                                    {b.bolge_adi}
-                                                    <span className="ta-m2-chip-count">
-                                                        {dbProjeler.filter((p) => p.bolge_id === b.id).length}
-                                                    </span>
-                                                </div>
-                                            ))
-                                        }
-                                    </div>
-                                </div>
-                            )}
 
-                            {/* ═══ PROJE TAB ═══ */}
-                            {ayarTab === "proje" && (
-                                <div className="ta-m2-section">
-                                    <div className="ta-m2-section-head">
-                                        <div>
-                                            <h3>Yeni Proje</h3>
-                                            <p>Bölge seçip proje adını girin.</p>
-                                        </div>
-                                    </div>
-                                    <div className="ta-m2-form-grid">
-                                        <div className="ta-m2-field">
-                                            <label className="ta-m2-label">Bölge</label>
-                                            <select className="ta-m2-select" value={projeBolgeId} onChange={(e) => setProjeBolgeId(e.target.value)}>
-                                                <option value="">Bölge seç…</option>
-                                                {dbBolgeler.map((b) => <option key={b.id} value={b.id}>{b.bolge_adi}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="ta-m2-field">
-                                            <label className="ta-m2-label">Proje Adı</label>
-                                            <input
-                                                className="ta-m2-input"
-                                                value={yeniProjeAdi}
-                                                onChange={(e) => setYeniProjeAdi(e.target.value)}
-                                                placeholder="Proje adı"
-                                                onKeyDown={(e) => e.key === "Enter" && projeEkle()}
-                                            />
-                                        </div>
-                                    </div>
-                                    <button className="ta-m2-action-btn ta-m2-action-primary" onClick={projeEkle} disabled={ayarLoading} style={{ marginTop: "4px" }}>
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                                        Proje Ekle
-                                    </button>
+                                    <div className="ta-m2-board">
+                                        {dbBolgeler
+                                            .filter((b) => {
+                                                const q = yonetimArama.toLowerCase().trim();
+                                                const bolgeMatch = b.bolge_adi.toLowerCase().includes(q);
+                                                const projeMatch = dbProjeler.some(
+                                                    (p) => p.bolge_id === b.id && p.proje_adi.toLowerCase().includes(q)
+                                                );
+                                                return !q || bolgeMatch || projeMatch;
+                                            })
+                                            .map((b) => {
+                                                const q = yonetimArama.toLowerCase().trim();
+                                                const projeler = dbProjeler.filter((p) =>
+                                                    p.bolge_id === b.id &&
+                                                    (!q || p.proje_adi.toLowerCase().includes(q) || b.bolge_adi.toLowerCase().includes(q))
+                                                );
 
-                                    <div className="ta-m2-divider" />
+                                                return (
+                                                    <div
+                                                        key={b.id}
+                                                        className={`ta-m2-region-card${suruklenenProjeId ? " ta-m2-region-card-drop" : ""}`}
+                                                        onDragOver={(e) => e.preventDefault()}
+                                                        onDrop={() => projeBolgeDegistir(suruklenenProjeId, b.id)}
+                                                    >
+                                                        <div className="ta-m2-region-head">
+                                                            <div>
+                                                                <strong>{b.bolge_adi}</strong>
+                                                                <span>{projeler.length} proje</span>
+                                                            </div>
 
-                                    <div className="ta-m2-section-head">
-                                        <h3>Mevcut Projeler <span className="ta-m2-count">{dbProjeler.length}</span></h3>
-                                    </div>
-                                    {dbBolgeler.map((b) => {
-                                        const bp = dbProjeler.filter((p) => p.bolge_id === b.id);
-                                        if (bp.length === 0) return null;
-                                        return (
-                                            <div key={b.id} className="ta-m2-proje-group">
-                                                <div className="ta-m2-proje-group-head">{b.bolge_adi}</div>
-                                                <div className="ta-m2-proje-list">
-                                                    {bp.map((p) => (
-                                                        <div key={p.id} className="ta-m2-proje-row">
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                                                            {p.proje_adi}
+                                                            <button
+                                                                type="button"
+                                                                className="ta-m2-danger-mini"
+                                                                onClick={() => bolgeSil(b.id)}
+                                                                disabled={ayarLoading}
+                                                            >
+                                                                Sil
+                                                            </button>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    {dbProjeler.length === 0 && <p className="ta-m2-empty">Henüz proje yok.</p>}
+
+                                                        <div className="ta-m2-drop-area">
+                                                            {projeler.map((p) => (
+                                                                <div
+                                                                    key={p.id}
+                                                                    className="ta-m2-draggable-project"
+                                                                    draggable
+                                                                    onDragStart={() => setSuruklenenProjeId(p.id)}
+                                                                    onDragEnd={() => setSuruklenenProjeId(null)}
+                                                                >
+                                                                    <span className="ta-m2-drag-icon">⋮⋮</span>
+                                                                    <span>{p.proje_adi}</span>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => projeSil(p.id)}
+                                                                        disabled={ayarLoading}
+                                                                        title="Projeyi sil"
+                                                                    >
+                                                                        ×
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+
+                                                            {projeler.length === 0 && (
+                                                                <div className="ta-m2-drop-empty">
+                                                                    Proje yok — buraya sürükleyip bırakabilirsiniz.
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+
+                                        {dbBolgeler.length === 0 && (
+                                            <p className="ta-m2-empty">Henüz bölge yok. İlk bölgeyi yukarıdan ekleyin.</p>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
@@ -978,7 +1188,7 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                                         )}
                                     </div>
 
-                                    {/* TEMEL BİLGİLER */}
+                                    {/* GRUP ADI */}
                                     <div className="ta-m2-mail-form ta-m2-mail-form-single">
                                         <div className="ta-m2-field">
                                             <label className="ta-m2-label">Grup Adı</label>
@@ -1022,20 +1232,37 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                                         </button>
                                     </div>
 
+                                    {/* KİME & CC LİSTBOX */}
                                     <div className="ta-m2-mail-listbox-grid">
+
+                                        {/* KIME */}
                                         <div className="ta-m2-listbox-card">
                                             <div className="ta-m2-listbox-head">
                                                 <div>
                                                     <strong>Kime</strong>
-                                                    <span>Mailin gideceği ana alıcıları seçin</span>
+                                                    <span>Mailin gideceği ana alıcılar</span>
                                                 </div>
                                                 <em>{emailStringToList(mailKime).length} seçili</em>
                                             </div>
-
+                                            <div className="ta-m2-listbox-search">
+                                                <div className="ta-m2-search-mini-wrap">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                                                    </svg>
+                                                    <input
+                                                        className="ta-m2-search-mini-input"
+                                                        value={kimeArama}
+                                                        onChange={(e) => setKimeArama(e.target.value)}
+                                                        placeholder="E-posta ara..."
+                                                    />
+                                                </div>
+                                            </div>
                                             <div className="ta-m2-listbox">
-                                                {mailKisileri.length === 0 ? (
-                                                    <p className="ta-m2-empty">Henüz mail kişisi yok. Yukarıdan ekleyin.</p>
-                                                ) : mailKisileri.map((kisi) => {
+                                                {kimeFiltreli.length === 0 ? (
+                                                    <p className="ta-m2-empty">
+                                                        {mailKisileri.length === 0 ? "Henüz mail kişisi yok. Yukarıdan ekleyin." : "Sonuç bulunamadı."}
+                                                    </p>
+                                                ) : kimeFiltreli.map((kisi) => {
                                                     const secili = emailSeciliMi("kime", kisi.email);
                                                     return (
                                                         <button
@@ -1050,21 +1277,46 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                                                     );
                                                 })}
                                             </div>
+                                            {emailStringToList(mailKime).length > 0 && (
+                                                <div className="ta-m2-listbox-footer">
+                                                    {emailStringToList(mailKime).map(email => (
+                                                        <div key={email} className="ta-m2-chip-removable">
+                                                            {email}
+                                                            <button type="button" onClick={() => mailKisiSecimiDegistir("kime", email, false)}>×</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
 
+                                        {/* CC */}
                                         <div className="ta-m2-listbox-card">
                                             <div className="ta-m2-listbox-head">
                                                 <div>
                                                     <strong>CC</strong>
-                                                    <span>Bilgiye eklemek istediğiniz kişileri seçin</span>
+                                                    <span>Bilgiye eklenecek kişiler</span>
                                                 </div>
                                                 <em>{emailStringToList(mailSs).length} seçili</em>
                                             </div>
-
+                                            <div className="ta-m2-listbox-search">
+                                                <div className="ta-m2-search-mini-wrap">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                                                    </svg>
+                                                    <input
+                                                        className="ta-m2-search-mini-input"
+                                                        value={ccArama}
+                                                        onChange={(e) => setCcArama(e.target.value)}
+                                                        placeholder="E-posta ara..."
+                                                    />
+                                                </div>
+                                            </div>
                                             <div className="ta-m2-listbox">
-                                                {mailKisileri.length === 0 ? (
-                                                    <p className="ta-m2-empty">Henüz mail kişisi yok. Yukarıdan ekleyin.</p>
-                                                ) : mailKisileri.map((kisi) => {
+                                                {ccFiltreli.length === 0 ? (
+                                                    <p className="ta-m2-empty">
+                                                        {mailKisileri.length === 0 ? "Henüz mail kişisi yok. Yukarıdan ekleyin." : "Sonuç bulunamadı."}
+                                                    </p>
+                                                ) : ccFiltreli.map((kisi) => {
                                                     const secili = emailSeciliMi("cc", kisi.email);
                                                     return (
                                                         <button
@@ -1079,7 +1331,18 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                                                     );
                                                 })}
                                             </div>
+                                            {emailStringToList(mailSs).length > 0 && (
+                                                <div className="ta-m2-listbox-footer">
+                                                    {emailStringToList(mailSs).map(email => (
+                                                        <div key={email} className="ta-m2-chip-removable">
+                                                            {email}
+                                                            <button type="button" onClick={() => mailKisiSecimiDegistir("cc", email, false)}>×</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
+
                                     </div>
 
                                     <div className="ta-m2-divider" />
@@ -1087,10 +1350,24 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                                     {/* PROJE SEÇİMİ */}
                                     <div className="ta-m2-section-head">
                                         <h3>Proje Seçimi <span className="ta-m2-count">{mailProjeIds.length} seçili</span></h3>
+                                        <div className="ta-m2-search-mini-wrap" style={{ width: "180px" }}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                                            </svg>
+                                            <input
+                                                className="ta-m2-search-mini-input"
+                                                value={projeArama}
+                                                onChange={(e) => setProjeArama(e.target.value)}
+                                                placeholder="Proje ara..."
+                                            />
+                                        </div>
                                     </div>
                                     <div className="ta-m2-proje-picker">
                                         {dbBolgeler.map((b) => {
-                                            const bp = dbProjeler.filter((p) => p.bolge_id === b.id);
+                                            const bp = dbProjeler.filter((p) =>
+                                                p.bolge_id === b.id &&
+                                                p.proje_adi.toLowerCase().includes(projeArama.toLowerCase())
+                                            );
                                             if (bp.length === 0) return null;
                                             return (
                                                 <div key={b.id} className="ta-m2-picker-group">
@@ -1113,6 +1390,9 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                                             );
                                         })}
                                         {dbProjeler.length === 0 && <p className="ta-m2-empty">Önce Projeler sekmesinden proje ekleyin.</p>}
+                                        {dbProjeler.length > 0 && projeArama && dbBolgeler.every(b =>
+                                            dbProjeler.filter(p => p.bolge_id === b.id && p.proje_adi.toLowerCase().includes(projeArama.toLowerCase())).length === 0
+                                        ) && <p className="ta-m2-empty">"{projeArama}" için sonuç bulunamadı.</p>}
                                     </div>
 
                                     <button
@@ -1140,17 +1420,25 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                                             <div className="ta-m2-divider" />
                                             <div className="ta-m2-section-head">
                                                 <h3>Kayıtlı Gruplar <span className="ta-m2-count">{mailGruplari.length}</span></h3>
+                                                <div className="ta-m2-search-mini-wrap" style={{ width: "180px" }}>
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                                                    </svg>
+                                                    <input
+                                                        className="ta-m2-search-mini-input"
+                                                        value={grupArama}
+                                                        onChange={(e) => setGrupArama(e.target.value)}
+                                                        placeholder="Grup ara..."
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="ta-m2-group-list">
-                                                {mailGruplari.map((g) => (
+                                                {grupFiltreli.length === 0 ? (
+                                                    <p className="ta-m2-empty">"{grupArama}" için grup bulunamadı.</p>
+                                                ) : grupFiltreli.map((g) => (
                                                     <div
                                                         key={g.id}
-                                                        className={`
-        ta-m2-group-card
-        ${duzenleGrupId === g.id ? " ta-m2-group-card-editing" : ""}
-        ${outlookLoadingId === g.id ? " ta-m2-group-card-sending" : ""}
-        ${sonGonderilenGrupId === g.id ? " ta-m2-group-card-sent" : ""}
-    `}
+                                                        className={`ta-m2-group-card${duzenleGrupId === g.id ? " ta-m2-group-card-editing" : ""}${outlookLoadingId === g.id ? " ta-m2-group-card-sending" : ""}${sonGonderilenGrupId === g.id ? " ta-m2-group-card-sent" : ""}`}
                                                     >
                                                         <div className="ta-m2-group-card-left">
                                                             <div className="ta-m2-group-avatar">
@@ -1185,7 +1473,8 @@ Bir önceki işgününe ait sorumluluğunuzdaki projelerle ilgili
                                                                     className="ta-m2-group-action-btn ta-m2-group-edit"
                                                                     onClick={() => mailGrupDuzenle(g)}
                                                                     title="Düzenle"
-                                                                >                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                                >
+                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                                 </button>
                                                                 <button
                                                                     className="ta-m2-group-action-btn ta-m2-group-del"

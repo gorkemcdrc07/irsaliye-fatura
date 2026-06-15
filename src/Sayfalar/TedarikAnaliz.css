@@ -1299,131 +1299,7 @@
     line-height: 1.3;
 }
 
-@media (max-width: 720px) {
-    .ta-m2-proje-picker {
-        grid-template-columns: 1fr;
-    }
-}
-/* ════════════════════════════════════════════════════════
-   RESPONSİVE
-   ════════════════════════════════════════════════════════ */
-@media (max-width: 768px) {
-    .ta-root {
-        padding: 14px 14px 40px;
-    }
-
-    .ta-header {
-        flex-wrap: wrap;
-    }
-
-    .ta-header-title {
-        font-size: 17px;
-    }
-
-    .ta-settings-btn {
-        margin-left: 0;
-        width: 100%;
-        justify-content: center;
-    }
-
-    .ta-kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .ta-kpi-value {
-        font-size: 24px;
-    }
-
-    .ta-panel {
-        padding: 14px 16px;
-    }
-
-    .ta-btn {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .ta-search-input {
-        min-width: 100%;
-    }
-}
-
-@media (max-width: 600px) {
-    .ta-modal-backdrop {
-        padding: 12px;
-    }
-
-    .ta-modal2 {
-        border-radius: 16px;
-        max-height: 92vh;
-    }
-
-    .ta-m2-header {
-        padding: 16px 18px 14px;
-    }
-
-    .ta-m2-tabs {
-        padding: 12px 18px 0;
-        overflow-x: auto;
-    }
-
-    .ta-m2-body {
-        padding: 18px 18px 24px;
-    }
-
-    .ta-m2-form-grid, .ta-m2-mail-form {
-        grid-template-columns: 1fr;
-    }
-
-    .ta-m2-group-card {
-        flex-wrap: wrap;
-    }
-
-    .ta-m2-group-card-right {
-        align-items: flex-start;
-        flex-direction: row;
-        width: 100%;
-    }
-
-    .ta-m2-group-to-label, .ta-m2-group-saatler {
-        max-width: 100%;
-    }
-
-    .ta-m2-saat-grid {
-        gap: 5px;
-    }
-
-    .ta-m2-saat-btn {
-        padding: 5px 10px;
-        font-size: 11px;
-    }
-}
-
-@media (max-width: 480px) {
-    .ta-kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 9px;
-    }
-
-    .ta-region-tab {
-        font-size: 10px;
-        padding: 4px 9px;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .ta-kpi-bar-fill, .ta-perf-fill, .ta-kpi-card,
-    .ta-settings-btn, .ta-btn, .ta-m2-action-btn,
-    .ta-m2-saat-btn {
-        transition: none;
-    }
-
-    .ta-btn-spin {
-        animation: none;
-    }
-}
-
-/* ─── MAIL KİŞİ SEÇİMİ ─── */
+/* ─── MAİL FORM TEK SÜTUN ─── */
 .ta-m2-mail-form-single {
     grid-template-columns: 1fr;
 }
@@ -1436,158 +1312,7 @@
     margin-bottom: 14px;
 }
 
-.ta-m2-mail-selected-wrap {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 14px;
-}
-
-.ta-m2-selected-box {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 13px;
-    padding: 11px 12px;
-    min-height: 78px;
-}
-
-.ta-m2-selected-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 11px;
-    font-weight: 800;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: .7px;
-    margin-bottom: 8px;
-}
-
-    .ta-m2-selected-title span {
-        background: #e2e8f0;
-        color: #334155;
-        border-radius: 999px;
-        padding: 1px 7px;
-        font-size: 10px;
-    }
-
-.ta-m2-selected-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.ta-m2-selected-empty {
-    color: #94a3b8;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.ta-m2-selected-chip {
-    border: 1px solid #cbd5e1;
-    background: #ffffff;
-    color: #0f172a;
-    border-radius: 999px;
-    padding: 4px 8px;
-    font-size: 11.5px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: border-color .13s, background .13s;
-}
-
-    .ta-m2-selected-chip:hover {
-        border-color: #dc2626;
-        background: #fef2f2;
-    }
-
-.ta-m2-mail-people-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    max-height: 300px;
-    overflow: auto;
-    padding: 2px 4px 2px 0;
-}
-
-    .ta-m2-mail-people-list::-webkit-scrollbar {
-        width: 5px;
-    }
-
-    .ta-m2-mail-people-list::-webkit-scrollbar-track {
-        background: #f1f5f9;
-    }
-
-    .ta-m2-mail-people-list::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 3px;
-    }
-
-.ta-m2-mail-person-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 11px;
-    padding: 9px 10px;
-    transition: border-color .13s, background .13s;
-}
-
-    .ta-m2-mail-person-row:hover {
-        border-color: #94a3b8;
-        background: #f8fafc;
-    }
-
-.ta-m2-mail-person-email {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    font-weight: 700;
-    color: #334155;
-}
-
-.ta-m2-mail-person-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    flex-shrink: 0;
-}
-
-.ta-m2-mini-check {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: 800;
-    color: #64748b;
-    cursor: pointer;
-    user-select: none;
-}
-
-    .ta-m2-mini-check input {
-        width: 13px;
-        height: 13px;
-        accent-color: #0f172a;
-    }
-
-@media (max-width: 720px) {
-    .ta-m2-mail-add-row,
-    .ta-m2-mail-selected-wrap,
-    .ta-m2-mail-people-list {
-        grid-template-columns: 1fr;
-    }
-
-        .ta-m2-mail-add-row .ta-m2-action-btn {
-            justify-content: center;
-            width: 100%;
-        }
-}
-
-
-/* ─── TEMİZ MAİL LİSTBOX SEÇİMİ ─── */
+/* ─── LİSTBOX KARTLARı ─── */
 .ta-m2-mail-listbox-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1639,8 +1364,51 @@
         padding: 3px 8px;
     }
 
+/* ─── LİSTBOX İÇİ ARAMA ─── */
+.ta-m2-listbox-search {
+    padding: 8px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc;
+}
+
+.ta-m2-search-mini-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+    .ta-m2-search-mini-wrap svg {
+        position: absolute;
+        left: 9px;
+        color: #94a3b8;
+        pointer-events: none;
+        flex-shrink: 0;
+    }
+
+.ta-m2-search-mini-input {
+    width: 100%;
+    padding: 6px 8px 6px 28px;
+    font-size: 12px;
+    font-family: "Inter", sans-serif;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    color: #0f172a;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+    .ta-m2-search-mini-input:focus {
+        border-color: #0f172a;
+        box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.07);
+    }
+
+    .ta-m2-search-mini-input::placeholder {
+        color: #94a3b8;
+    }
+
 .ta-m2-listbox {
-    height: 260px;
+    height: 200px;
     overflow-y: auto;
     padding: 8px;
     background: #ffffff;
@@ -1717,12 +1485,338 @@
     font-weight: 700;
 }
 
+/* ─── SEÇİLİ CHIP FOOTER ─── */
+.ta-m2-listbox-footer {
+    padding: 8px 10px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-height: 38px;
+    background: #fafafa;
+}
+
+.ta-m2-chip-removable {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px 3px 9px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #334155;
+}
+
+    .ta-m2-chip-removable button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #94a3b8;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0 1px;
+        font-family: "Inter", sans-serif;
+    }
+
+        .ta-m2-chip-removable button:hover {
+            color: #dc2626;
+        }
+
+/* ════════════════════════════════════════════════════════
+   RESPONSİVE
+   ════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+    .ta-root {
+        padding: 14px 14px 40px;
+    }
+
+    .ta-header {
+        flex-wrap: wrap;
+    }
+
+    .ta-header-title {
+        font-size: 17px;
+    }
+
+    .ta-settings-btn {
+        margin-left: 0;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .ta-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .ta-kpi-value {
+        font-size: 24px;
+    }
+
+    .ta-panel {
+        padding: 14px 16px;
+    }
+
+    .ta-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .ta-search-input {
+        min-width: 100%;
+    }
+}
+
 @media (max-width: 720px) {
+    .ta-m2-proje-picker {
+        grid-template-columns: 1fr;
+    }
+
     .ta-m2-mail-listbox-grid {
         grid-template-columns: 1fr;
     }
 
     .ta-m2-listbox {
-        height: 220px;
+        height: 180px;
+    }
+}
+
+@media (max-width: 600px) {
+    .ta-modal-backdrop {
+        padding: 12px;
+    }
+
+    .ta-modal2 {
+        border-radius: 16px;
+        max-height: 92vh;
+    }
+
+    .ta-m2-header {
+        padding: 16px 18px 14px;
+    }
+
+    .ta-m2-tabs {
+        padding: 12px 18px 0;
+        overflow-x: auto;
+    }
+
+    .ta-m2-body {
+        padding: 18px 18px 24px;
+    }
+
+    .ta-m2-form-grid, .ta-m2-mail-form {
+        grid-template-columns: 1fr;
+    }
+
+    .ta-m2-group-card {
+        flex-wrap: wrap;
+    }
+
+    .ta-m2-group-card-right {
+        align-items: flex-start;
+        flex-direction: row;
+        width: 100%;
+    }
+
+    .ta-m2-group-to-label, .ta-m2-group-saatler {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .ta-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 9px;
+    }
+
+    .ta-region-tab {
+        font-size: 10px;
+        padding: 4px 9px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ta-kpi-bar-fill, .ta-perf-fill, .ta-kpi-card,
+    .ta-settings-btn, .ta-btn, .ta-m2-action-btn {
+        transition: none;
+    }
+
+    .ta-btn-spin {
+        animation: none;
+    }
+}
+
+
+/* ════════════════════════════════════════════════════════
+   BÖLGE & PROJE SÜRÜKLE-BIRAK YÖNETİMİ
+   ════════════════════════════════════════════════════════ */
+
+.ta-m2-manager-top {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 12px;
+}
+
+.ta-m2-add-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px;
+}
+
+.ta-m2-inline {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 7px;
+}
+
+.ta-m2-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.ta-m2-region-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 12px;
+    min-height: 150px;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+    .ta-m2-region-card:hover,
+    .ta-m2-region-card-drop {
+        border-color: #94a3b8;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+        transform: translateY(-1px);
+    }
+
+.ta-m2-region-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+    margin-bottom: 10px;
+}
+
+    .ta-m2-region-head strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .ta-m2-region-head span {
+        display: block;
+        margin-top: 2px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #94a3b8;
+    }
+
+.ta-m2-danger-mini {
+    border: 1px solid rgba(220, 38, 38, 0.18);
+    background: rgba(220, 38, 38, 0.06);
+    color: #dc2626;
+    border-radius: 8px;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: "Inter", sans-serif;
+}
+
+    .ta-m2-danger-mini:hover {
+        background: #dc2626;
+        color: #ffffff;
+    }
+
+.ta-m2-drop-area {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 78px;
+}
+
+.ta-m2-draggable-project {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 9px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #334155;
+    cursor: grab;
+    transition: background 0.13s, border-color 0.13s, transform 0.13s;
+}
+
+    .ta-m2-draggable-project:hover {
+        background: #ffffff;
+        border-color: #0f172a;
+        transform: translateX(2px);
+    }
+
+    .ta-m2-draggable-project:active {
+        cursor: grabbing;
+    }
+
+    .ta-m2-draggable-project span:nth-child(2) {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+.ta-m2-drag-icon {
+    color: #94a3b8;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.ta-m2-draggable-project button {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 17px;
+    line-height: 1;
+}
+
+    .ta-m2-draggable-project button:hover {
+        background: rgba(220, 38, 38, 0.08);
+        color: #dc2626;
+    }
+
+.ta-m2-drop-empty {
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 18px 12px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    background: #f8fafc;
+}
+
+@media (max-width: 720px) {
+    .ta-m2-manager-top {
+        grid-template-columns: 1fr;
+    }
+
+    .ta-m2-inline {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
