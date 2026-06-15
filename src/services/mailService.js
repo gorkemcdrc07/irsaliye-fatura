@@ -1,8 +1,16 @@
 import dns from "dns";
-dns.setDefaultResultOrder("ipv4first");
 import nodemailer from "nodemailer";
 
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+
+// IPv6 ENETUNREACH sorununu önlemek için DNS lookup'ý IPv4'e zorla
+function lookupIPv4(hostname, options, callback) {
+    if (typeof options === "function") {
+        callback = options;
+        options = {};
+    }
+    dns.lookup(hostname, { ...options, family: 4 }, callback);
+}
 
 export const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -18,6 +26,7 @@ export const transporter = nodemailer.createTransport({
     tls: {
         rejectUnauthorized: false,
     },
+    lookup: lookupIPv4,
 });
 
 transporter.verify((error, success) => {
