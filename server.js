@@ -1,6 +1,7 @@
 ﻿import dns from "dns";
 dns.setDefaultResultOrder("ipv4first");
 
+import net from "net";
 import express from "express";
 import cors from "cors";
 import nodemailer from "nodemailer";
@@ -52,6 +53,57 @@ app.get("/health", (req, res) => {
     });
 });
 
+app.get("/smtp-test", async (req, res) => {
+    const smtpHost = process.env.SMTP_HOST || "smtp.office365.com";
+    const smtpPort = Number(process.env.SMTP_PORT || 587);
+
+    try {
+        const smtpLookup = await dns.promises.lookup(smtpHost, { family: 4 });
+        const socket = new net.Socket();
+
+        socket.setTimeout(10000);
+
+        socket.connect(smtpPort, smtpLookup.address, () => {
+            socket.destroy();
+            return res.status(200).json({
+                success: true,
+                message: "SMTP bağlantısı başarılı.",
+                host: smtpHost,
+                ip: smtpLookup.address,
+                port: smtpPort,
+            });
+        });
+
+        socket.on("timeout", () => {
+            socket.destroy();
+            return res.status(500).json({
+                success: false,
+                error: "SMTP timeout",
+                host: smtpHost,
+                ip: smtpLookup.address,
+                port: smtpPort,
+            });
+        });
+
+        socket.on("error", (err) => {
+            socket.destroy();
+            return res.status(500).json({
+                success: false,
+                code: err.code,
+                error: err.message,
+                host: smtpHost,
+                ip: smtpLookup.address,
+                port: smtpPort,
+            });
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: err.message || "SMTP test hatası",
+        });
+    }
+});
+
 app.post("/api/send-invoice-report", async (req, res) => {
     try {
         const {
@@ -86,10 +138,7 @@ app.post("/api/send-invoice-report", async (req, res) => {
 
         const smtpHost = process.env.SMTP_HOST || "smtp.office365.com";
         const smtpPort = Number(process.env.SMTP_PORT || 587);
-
-        const smtpLookup = await dns.promises.lookup(smtpHost, {
-            family: 4,
-        });
+        const smtpLookup = await dns.promises.lookup(smtpHost, { family: 4 });
 
         console.log("SMTP IPv4:", smtpLookup.address);
 
