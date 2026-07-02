@@ -11,6 +11,7 @@ import Topbar from "./Bilesenler/Topbar";
 import TedarikAnaliz from "./Sayfalar/TedarikAnaliz";
 import TeslimEvraklari from "./Sayfalar/TeslimEvraklari";
 import Fatura from "./Sayfalar/Fatura";
+import Karlilik from "./Sayfalar/karlilik";
 import Login from "./Sayfalar/Login";
 import KullaniciYonetimi from "./Sayfalar/KullaniciYonetimi";
 
@@ -56,6 +57,7 @@ function getDefaultPath(): string {
 
     if (hasPermission(permissions, "evrak")) return "/teslim-evraklari";
     if (hasPermission(permissions, "fatura")) return "/fatura";
+    if (hasPermission(permissions, "karlilik")) return "/karlilik";
 
     return "/login";
 }
@@ -147,6 +149,15 @@ function Layout() {
                     element={
                         <ProtectedRoute permission="fatura">
                             <Fatura />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/karlilik"
+                    element={
+                        <ProtectedRoute permission="karlilik">
+                            <Karlilik />
                         </ProtectedRoute>
                     }
                 />

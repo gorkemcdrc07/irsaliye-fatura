@@ -212,6 +212,78 @@ function TeslimEvraklari() {
         return data;
     }
 
+    async function apiGetIstek(url) {
+        const token = localStorage.getItem("token") || "supabase-login";
+        const fullUrl = `${import.meta.env.VITE_SHO_API_BASE_URL}${url}`;
+        const response = await fetch(fullUrl, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        const data = await guvenliJsonOku(response);
+        if (response.status === 401) throw new Error("Yetkilendirme hatası.");
+        if (!response.ok) throw new Error(data?.message || `API hata: ${response.status}`);
+        return data;
+    }
+
+    function takipVerisiBul(data) {
+        const kaynak = data?.data || data?.result || data?.items || data;
+        if (Array.isArray(kaynak)) return kaynak[0] || null;
+        if (Array.isArray(kaynak?.data)) return kaynak.data[0] || null;
+        if (Array.isArray(kaynak?.items)) return kaynak.items[0] || null;
+        if (kaynak && typeof kaynak === "object") return kaynak;
+        return null;
+    }
+
+    function takipAlanBul(obj, alanlar) {
+        if (!obj || typeof obj !== "object") return "";
+        for (const alan of alanlar) {
+            if (obj[alan] !== undefined && obj[alan] !== null && obj[alan] !== "") return obj[alan];
+        }
+        return "";
+    }
+
+    function takipOzetiOlustur(takip) {
+        if (!takip) return null;
+
+        const tarih = takipAlanBul(takip, [
+            "trackingDate", "TrackingDate", "date", "Date", "createdDate", "CreatedDate",
+            "lastSignalDate", "LastSignalDate", "gpsDate", "GpsDate", "insertDate", "InsertDate"
+        ]);
+
+        const konum = takipAlanBul(takip, [
+            "address", "Address", "location", "Location", "lastLocation", "LastLocation",
+            "currentLocation", "CurrentLocation", "city", "City", "district", "District"
+        ]);
+
+        const durum = takipAlanBul(takip, [
+            "statu", "status", "Status", "vehicleStatus", "VehicleStatus", "state", "State"
+        ]);
+
+        const hiz = takipAlanBul(takip, ["speed", "Speed", "vehicleSpeed", "VehicleSpeed"]);
+        const lat = takipAlanBul(takip, ["latitude", "Latitude", "lat", "Lat"]);
+        const lng = takipAlanBul(takip, ["longitude", "Longitude", "lng", "Lng", "lon", "Lon"]);
+
+        return {
+            tarih,
+            konum,
+            durum,
+            hiz,
+            lat,
+            lng,
+            hamVeri: takip,
+        };
+    }
+
+    function takipTarihFormatla(value) {
+        if (!value) return "-";
+        const tarih = new Date(value);
+        if (Number.isNaN(tarih.getTime())) return String(value).split("T").join(" ");
+        return tarih.toLocaleString("tr-TR");
+    }
+
     async function evraklariGetir() {
 
         const baslamaZamani = performance.now();
@@ -266,12 +338,18 @@ function TeslimEvraklari() {
                 files: [],
                 fileContentLoading: true,
                 fileContentError: "",
+                takip: null,
+                takipLoading: true,
+                takipError: "",
             }));
             setEvraklar(temizListe);
             setToplamDosyaSayisi(temizListe.length);
             setLoading(false);
             setIlkYuklemeTamamlandi(true);
-            await dosyalariGetir(temizListe, aktifIstek);
+            await Promise.allSettled([
+                aracTakipleriniGetir(temizListe, aktifIstek),
+                dosyalariGetir(temizListe, aktifIstek),
+            ]);
         } catch (error) {
             const bitisZamani = performance.now();
 
@@ -286,6 +364,41 @@ function TeslimEvraklari() {
             setLoading(false);
             setFileLoading(false);
             setIlkYuklemeTamamlandi(true);
+        }
+    }
+
+    async function aracTakipleriniGetir(liste, aktifIstek) {
+        for (const evrak of liste) {
+            if (istekNo.current !== aktifIstek) return;
+
+            const tmsDespatchId = evrak?.tmsDespatchId;
+            if (!tmsDespatchId) {
+                evrakGuncelle(evrak, {
+                    takip: null,
+                    takipLoading: false,
+                    takipError: "TMS Despatch ID yok.",
+                });
+                continue;
+            }
+
+            try {
+                const data = await apiGetIstek(
+                    `/odak-api/api/tmsdespatch/vehicletrackinggetbytmsdespatchid?tmsDespatchId=${encodeURIComponent(tmsDespatchId)}`
+                );
+
+                const takip = takipOzetiOlustur(takipVerisiBul(data));
+                evrakGuncelle(evrak, {
+                    takip,
+                    takipLoading: false,
+                    takipError: takip ? "" : "Takip verisi yok.",
+                });
+            } catch (error) {
+                evrakGuncelle(evrak, {
+                    takip: null,
+                    takipLoading: false,
+                    takipError: error.message || "Takip verisi çekilemedi.",
+                });
+            }
         }
     }
 
@@ -542,6 +655,10 @@ function TeslimEvraklari() {
                 formatTarih(evrak?.despatchDate),
                 seferDurumuBul(seferDurumDegeriBul(evrak)),
                 evrakDurumuBul(evrak?.tmsDespatchDocumentStatu),
+                evrak?.takip?.konum,
+                evrak?.takip?.durum,
+                evrak?.takip?.hiz,
+                takipTarihFormatla(evrak?.takip?.tarih),
                 ...(evrak?.files || []).map((f) => f.documentReferenceNumber),
             ];
             return alanlar.filter(Boolean).some((v) => String(v).toLocaleLowerCase("tr-TR").includes(q));
@@ -702,6 +819,7 @@ function TeslimEvraklari() {
                                     <th>Tarih</th>
                                     <th>Sefer Durumu</th>
                                     <th>Evrak Durumu</th>
+                                    <th>Araç Takip</th>
                                     <th className="col-center">Görüntü / İrsaliye Sayısı</th>
                                 </tr>
                             </thead>
@@ -749,6 +867,25 @@ function TeslimEvraklari() {
                                                 <span className={`evrak-badge evrak-${evrak.tmsDespatchDocumentStatu}`}>
                                                     {evrakDurumuBul(evrak.tmsDespatchDocumentStatu)}
                                                 </span>
+                                            </td>
+                                            <td>
+                                                {evrak.takipLoading ? (
+                                                    <span className="tracking-chip loading">
+                                                        <i className="ti ti-loader-2 spin" /> Yükleniyor
+                                                    </span>
+                                                ) : evrak.takipError ? (
+                                                    <span className="tracking-chip error">
+                                                        <i className="ti ti-map-off" /> {evrak.takipError}
+                                                    </span>
+                                                ) : (
+                                                    <div className="tracking-cell">
+                                                        <span className="cell-primary">{deger(evrak.takip?.konum || evrak.takip?.durum)}</span>
+                                                        <span className="cell-secondary">
+                                                            {takipTarihFormatla(evrak.takip?.tarih)}
+                                                            {evrak.takip?.hiz ? ` · ${evrak.takip.hiz} km/s` : ""}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="col-center">
                                                 {evrak.fileContentLoading ? (
@@ -811,6 +948,16 @@ function TeslimEvraklari() {
                                         {evrakDurumuBul(seciliEvrak.tmsDespatchDocumentStatu)}
                                     </span>
                                 </div>
+                                <div className="status-pill">
+                                    <span className="pill-label">Araç Takip</span>
+                                    {seciliEvrak.takipLoading ? (
+                                        <span className="tracking-chip loading"><i className="ti ti-loader-2 spin" /> Yükleniyor</span>
+                                    ) : seciliEvrak.takipError ? (
+                                        <span className="tracking-chip error"><i className="ti ti-map-off" /> Yok</span>
+                                    ) : (
+                                        <span className="tracking-chip ok"><i className="ti ti-map-pin" /> Veri Geldi</span>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Info grid */}
@@ -838,6 +985,23 @@ function TeslimEvraklari() {
                                 <div className="info-cell">
                                     <span className="info-label"><i className="ti ti-hash" /> Müşteri Sipariş No</span>
                                     <strong>{deger(seciliEvrak.customerOrderNumber)}</strong>
+                                </div>
+                                <div className="info-cell">
+                                    <span className="info-label"><i className="ti ti-map-pin" /> Son Konum</span>
+                                    <strong>{deger(seciliEvrak.takip?.konum || seciliEvrak.takip?.durum)}</strong>
+                                </div>
+                                <div className="info-cell">
+                                    <span className="info-label"><i className="ti ti-clock" /> Takip Tarihi</span>
+                                    <strong>{takipTarihFormatla(seciliEvrak.takip?.tarih)}</strong>
+                                </div>
+                                <div className="info-cell">
+                                    <span className="info-label"><i className="ti ti-gauge" /> Hız / Koordinat</span>
+                                    <strong>
+                                        {seciliEvrak.takip?.hiz ? `${seciliEvrak.takip.hiz} km/s` : "-"}
+                                        {seciliEvrak.takip?.lat && seciliEvrak.takip?.lng
+                                            ? ` · ${seciliEvrak.takip.lat}, ${seciliEvrak.takip.lng}`
+                                            : ""}
+                                    </strong>
                                 </div>
                             </div>
 

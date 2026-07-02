@@ -3,9 +3,26 @@ import { supabase } from "../supabaseClient";
 import "./KullaniciYonetimi.css";
 
 const TUM_YETKILER = [
-    { key: "evrak", label: "Teslim Evrakları", icon: "ti-file-description" },
-    { key: "fatura", label: "Faturalar", icon: "ti-receipt" },
-    { key: "tedarikAnaliz", label: "Tedarik Analiz", icon: "ti-chart-bar" },
+    {
+        key: "evrak",
+        label: "Teslim Evrakları",
+        icon: "ti-file-description",
+    },
+    {
+        key: "fatura",
+        label: "Faturalar",
+        icon: "ti-receipt",
+    },
+    {
+        key: "tedarikAnaliz",
+        label: "Tedarik Analiz",
+        icon: "ti-chart-bar",
+    },
+    {
+        key: "karlilik",
+        label: "Karlılık",
+        icon: "ti-cash",
+    },
 ];
 function bosForm() {
     return { userName: "", password: "", customerId: "", permissions: [] };
