@@ -937,22 +937,32 @@ function TeslimEvraklari() {
                                                     className={`tracking-open-btn ${evrak.takipError ? "error" : ""}`}
                                                     onClick={(e) => takipPanelAc(evrak, e)}
                                                     disabled={evrak.takipLoading}
+                                                    title="Araç takip detayını aç"
                                                 >
                                                     {evrak.takipLoading ? (
-                                                        <span className="tracking-chip loading">
-                                                            <i className="ti ti-loader-2 spin" /> Yükleniyor
+                                                        <span className="tracking-status-card loading">
+                                                            <span className="tracking-status-icon"><i className="ti ti-loader-2 spin" /></span>
+                                                            <span>
+                                                                <strong>Kontrol ediliyor</strong>
+                                                                <small>Takip bilgisi yükleniyor</small>
+                                                            </span>
                                                         </span>
                                                     ) : evrak.takipError ? (
-                                                        <span className="tracking-chip error">
-                                                            <i className="ti ti-map-off" /> {evrak.takipError}
+                                                        <span className="tracking-status-card empty">
+                                                            <span className="tracking-status-icon"><i className="ti ti-map-off" /></span>
+                                                            <span>
+                                                                <strong>Kayıt Yok</strong>
+                                                                <small>Takip hareketi bulunamadı</small>
+                                                            </span>
                                                         </span>
                                                     ) : (
-                                                        <div className="tracking-cell">
-                                                            <span className="cell-primary">{takipDurumMetni(evrak.takip)}</span>
-                                                            <span className="cell-secondary">
-                                                                {takipKonumMetni(evrak.takip)} · {takipTarihFormatla(takipTarihDegeri(evrak.takip))}
+                                                        <span className="tracking-status-card ok">
+                                                            <span className="tracking-status-icon"><i className="ti ti-route" /></span>
+                                                            <span>
+                                                                <strong>Kayıt Var · {evrak.takipListesi?.length || 1}</strong>
+                                                                <small>{takipDurumMetni(evrak.takip)} · {takipKonumMetni(evrak.takip)}</small>
                                                             </span>
-                                                        </div>
+                                                        </span>
                                                     )}
                                                 </button>
                                             </td>
@@ -1170,58 +1180,93 @@ function TeslimEvraklari() {
 
             {takipPanel && (
                 <div
-                    className="tracking-floating-panel"
+                    className="tracking-floating-panel modern"
                     style={{ left: takipPanelPozisyon.x, top: takipPanelPozisyon.y }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="tracking-panel-header" onMouseDown={takipPanelSurukleBaslat}>
-                        <div>
-                            <span>Araç Takip Hareketleri</span>
-                            <strong>{deger(takipPanel.documentNo)} · {deger(takipPanel.plateNumber)}</strong>
+                    <div className="tracking-panel-header modern" onMouseDown={takipPanelSurukleBaslat}>
+                        <div className="tracking-panel-title-wrap">
+                            <div className="tracking-panel-icon"><i className="ti ti-truck-delivery" /></div>
+                            <div>
+                                <span>Araç Takip Paneli</span>
+                                <strong>{deger(takipPanel.documentNo)} · {deger(takipPanel.plateNumber)}</strong>
+                            </div>
                         </div>
                         <button type="button" onClick={() => setTakipPanel(null)} aria-label="Kapat">
                             <i className="ti ti-x" />
                         </button>
                     </div>
 
-                    <div className="tracking-panel-summary">
+                    <div className="tracking-panel-hero">
+                        <div>
+                            <span className="hero-label">Kayıt Durumu</span>
+                            {takipPanel.takipLoading ? (
+                                <strong className="hero-title loading-text">Kontrol ediliyor</strong>
+                            ) : takipPanel.takipError ? (
+                                <strong className="hero-title no-record">Kayıt Yok</strong>
+                            ) : (
+                                <strong className="hero-title has-record">Kayıt Var</strong>
+                            )}
+                            <p>
+                                {takipPanel.takipError
+                                    ? "Bu sefer için araç takip hareketi bulunamadı."
+                                    : `Bu sefer için ${takipPanel.takipListesi?.length || 0} adet takip hareketi listeleniyor.`}
+                            </p>
+                        </div>
+                        <div className="hero-count-card">
+                            <span>{takipPanel.takipListesi?.length || 0}</span>
+                            <small>hareket</small>
+                        </div>
+                    </div>
+
+                    <div className="tracking-panel-summary modern">
                         <div>
                             <span>Sürücü</span>
                             <strong>{deger(takipPanel.fullName)}</strong>
                         </div>
                         <div>
-                            <span>Kayıt</span>
-                            <strong>{takipPanel.takipListesi?.length || 0}</strong>
+                            <span>Son Durum</span>
+                            <strong>{takipPanel.takipError ? "-" : takipDurumMetni(takipPanel.takip)}</strong>
+                        </div>
+                        <div>
+                            <span>Son Konum</span>
+                            <strong>{takipPanel.takipError ? "-" : takipKonumMetni(takipPanel.takip)}</strong>
                         </div>
                     </div>
 
                     {takipPanel.takipLoading ? (
-                        <div className="tracking-panel-empty">
+                        <div className="tracking-panel-empty modern-empty">
                             <i className="ti ti-loader-2 spin" />
                             Takip verileri yükleniyor...
                         </div>
                     ) : takipPanel.takipError ? (
-                        <div className="tracking-panel-empty error">
+                        <div className="tracking-panel-empty modern-empty error">
                             <i className="ti ti-map-off" />
-                            {takipPanel.takipError}
+                            <strong>Kayıt bulunamadı</strong>
+                            <span>Bu sefere ait araç takip hareketi yok.</span>
                         </div>
                     ) : (
-                        <div className="tracking-timeline">
+                        <div className="tracking-timeline modern">
                             {(takipPanel.takipListesi || []).map((takip, index) => (
-                                <div className="tracking-timeline-item" key={`${takipTarihDegeri(takip)}-${index}`}>
-                                    <div className="tracking-dot" />
-                                    <div className="tracking-item-card">
-                                        <div className="tracking-item-top">
-                                            <strong>{takipDurumMetni(takip)}</strong>
-                                            <span>{takipTarihFormatla(takipTarihDegeri(takip))}</span>
+                                <div className="tracking-timeline-item modern" key={`${takipTarihDegeri(takip)}-${index}`}>
+                                    <div className="tracking-dot modern">{index + 1}</div>
+                                    <div className="tracking-item-card modern">
+                                        <div className="tracking-item-top modern">
+                                            <div>
+                                                <strong>{takipDurumMetni(takip)}</strong>
+                                                <small>{takipTarihFormatla(takipTarihDegeri(takip))}</small>
+                                            </div>
+                                            <span className="movement-badge">Hareket {index + 1}</span>
                                         </div>
-                                        <div className="tracking-item-location">
-                                            <i className="ti ti-map-pin" />
-                                            {takipKonumMetni(takip)}
-                                        </div>
-                                        <div className="tracking-item-user">
-                                            <i className="ti ti-user" />
-                                            {takipKullaniciMetni(takip)}
+                                        <div className="tracking-item-grid">
+                                            <div>
+                                                <span><i className="ti ti-map-pin" /> Konum</span>
+                                                <strong>{takipKonumMetni(takip)}</strong>
+                                            </div>
+                                            <div>
+                                                <span><i className="ti ti-user" /> Oluşturan</span>
+                                                <strong>{takipKullaniciMetni(takip)}</strong>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

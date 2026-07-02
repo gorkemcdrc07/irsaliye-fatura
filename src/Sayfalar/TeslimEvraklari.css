@@ -1550,3 +1550,364 @@
         font-size: 14px;
         color: #94a3b8;
     }
+
+/* ─── Modern Vehicle Tracking Status ─────────────────────── */
+.tracking-status-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 270px;
+    min-height: 46px;
+    padding: 8px 10px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, .04);
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.tracking-open-btn:hover .tracking-status-card {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+}
+
+.tracking-status-card.ok {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfeff 100%);
+    border-color: #bbf7d0;
+}
+
+.tracking-status-card.empty {
+    background: linear-gradient(135deg, #fff7ed 0%, #fef2f2 100%);
+    border-color: #fed7aa;
+}
+
+.tracking-status-card.loading {
+    background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+    border-color: #bfdbfe;
+}
+
+.tracking-status-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: #111827;
+    color: #fff;
+    font-size: 15px;
+}
+
+.tracking-status-card.ok .tracking-status-icon {
+    background: #16a34a;
+}
+
+.tracking-status-card.empty .tracking-status-icon {
+    background: #f97316;
+}
+
+.tracking-status-card.loading .tracking-status-icon {
+    background: #2563eb;
+}
+
+.tracking-status-card strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+}
+
+.tracking-status-card small {
+    display: block;
+    max-width: 200px;
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ─── Modern Floating Tracking Panel ─────────────────────── */
+.tracking-floating-panel.modern {
+    width: min(640px, calc(100vw - 24px));
+    max-height: min(760px, calc(100vh - 24px));
+    border: 1px solid rgba(226, 232, 240, .9);
+    border-radius: 24px;
+    background: #ffffff;
+    box-shadow: 0 28px 90px rgba(15, 23, 42, .24);
+}
+
+.tracking-panel-header.modern {
+    padding: 18px 20px;
+    background: radial-gradient(circle at top left, rgba(96, 165, 250, .28), transparent 34%), linear-gradient(135deg, #0f172a 0%, #111827 58%, #1e293b 100%);
+}
+
+.tracking-panel-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.tracking-panel-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, .12);
+    border: 1px solid rgba(255, 255, 255, .14);
+    color: #fff;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.tracking-panel-hero {
+    margin: 14px 14px 0;
+    padding: 16px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #f8fafc 0%, #eef6ff 100%);
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.hero-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .35px;
+    margin-bottom: 4px;
+}
+
+.hero-title {
+    display: block;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+    color: #111827;
+}
+
+    .hero-title.has-record {
+        color: #15803d;
+    }
+
+    .hero-title.no-record {
+        color: #c2410c;
+    }
+
+    .hero-title.loading-text {
+        color: #1d4ed8;
+    }
+
+.tracking-panel-hero p {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.hero-count-card {
+    width: 88px;
+    height: 78px;
+    border-radius: 18px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
+    flex-shrink: 0;
+}
+
+    .hero-count-card span {
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1;
+        color: #111827;
+        font-family: 'DM Mono', monospace;
+    }
+
+    .hero-count-card small {
+        margin-top: 4px;
+        font-size: 11px;
+        color: #64748b;
+    }
+
+.tracking-panel-summary.modern {
+    grid-template-columns: 1fr 1fr 1.4fr;
+    padding: 14px;
+    background: #fff;
+    border-bottom: 1px solid #eef2f7;
+}
+
+    .tracking-panel-summary.modern div {
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .tracking-panel-summary.modern strong {
+        display: block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+.tracking-panel-empty.modern-empty {
+    min-height: 220px;
+    flex-direction: column;
+    padding: 34px;
+    text-align: center;
+    background: #fff;
+}
+
+    .tracking-panel-empty.modern-empty i {
+        width: 52px;
+        height: 52px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        background: #f1f5f9;
+        font-size: 24px;
+        color: #475569;
+    }
+
+    .tracking-panel-empty.modern-empty.error {
+        color: #9a3412;
+        background: linear-gradient(135deg, #fff7ed 0%, #fff 100%);
+    }
+
+        .tracking-panel-empty.modern-empty.error i {
+            background: #ffedd5;
+            color: #ea580c;
+        }
+
+    .tracking-panel-empty.modern-empty strong {
+        font-size: 15px;
+        color: #111827;
+    }
+
+    .tracking-panel-empty.modern-empty span {
+        font-size: 12px;
+        color: #64748b;
+    }
+
+.tracking-timeline.modern {
+    padding: 16px 18px 20px;
+    background: #fff;
+}
+
+.tracking-timeline-item.modern {
+    grid-template-columns: 34px 1fr;
+    gap: 12px;
+}
+
+    .tracking-timeline-item.modern:not(:last-child)::before {
+        left: 16px;
+        top: 34px;
+        bottom: -4px;
+        background: linear-gradient(#cbd5e1, #e2e8f0);
+    }
+
+.tracking-dot.modern {
+    width: 34px;
+    height: 34px;
+    border: none;
+    margin-top: 4px;
+    background: #111827;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 800;
+    font-family: 'DM Mono', monospace;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .18);
+}
+
+.tracking-item-card.modern {
+    border-radius: 18px;
+    padding: 14px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, .05);
+}
+
+.tracking-item-top.modern {
+    margin-bottom: 12px;
+}
+
+    .tracking-item-top.modern strong {
+        display: block;
+        font-size: 14px;
+        color: #111827;
+        font-weight: 800;
+    }
+
+    .tracking-item-top.modern small {
+        display: block;
+        margin-top: 2px;
+        font-family: 'DM Mono', monospace;
+        font-size: 11px;
+        color: #64748b;
+    }
+
+.movement-badge {
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.tracking-item-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+    .tracking-item-grid div {
+        padding: 10px 11px;
+        border-radius: 14px;
+        background: #f8fafc;
+        border: 1px solid #eef2f7;
+    }
+
+    .tracking-item-grid span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: #64748b;
+        margin-bottom: 5px;
+    }
+
+    .tracking-item-grid strong {
+        display: block;
+        font-size: 12px;
+        color: #111827;
+        font-weight: 700;
+        word-break: break-word;
+    }
+
+@media (max-width: 720px) {
+    .tracking-panel-summary.modern,
+    .tracking-item-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .tracking-floating-panel.modern {
+        left: 12px !important;
+        width: calc(100vw - 24px);
+    }
+}
