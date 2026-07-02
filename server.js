@@ -1,10 +1,6 @@
-﻿import dns from "dns";
-dns.setDefaultResultOrder("ipv4first");
-
-import net from "net";
-import express from "express";
+﻿import express from "express";
 import cors from "cors";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import "dotenv/config";
 
 const app = express();
@@ -37,11 +33,14 @@ app.options(/.*/, cors(corsOptions));
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 app.get("/", (req, res) => {
     res.status(200).json({
         success: true,
         service: "TMS Proxy API",
         status: "running",
+        mailProvider: "resend",
         time: new Date().toISOString(),
     });
 });
@@ -50,58 +49,8 @@ app.get("/health", (req, res) => {
     res.status(200).json({
         ok: true,
         uptime: process.uptime(),
+        mailProvider: "resend",
     });
-});
-
-app.get("/smtp-test", async (req, res) => {
-    const smtpHost = process.env.SMTP_HOST || "smtp.office365.com";
-    const smtpPort = Number(process.env.SMTP_PORT || 587);
-
-    try {
-        const smtpLookup = await dns.promises.lookup(smtpHost, { family: 4 });
-        const socket = new net.Socket();
-
-        socket.setTimeout(10000);
-
-        socket.connect(smtpPort, smtpLookup.address, () => {
-            socket.destroy();
-            return res.status(200).json({
-                success: true,
-                message: "SMTP bağlantısı başarılı.",
-                host: smtpHost,
-                ip: smtpLookup.address,
-                port: smtpPort,
-            });
-        });
-
-        socket.on("timeout", () => {
-            socket.destroy();
-            return res.status(500).json({
-                success: false,
-                error: "SMTP timeout",
-                host: smtpHost,
-                ip: smtpLookup.address,
-                port: smtpPort,
-            });
-        });
-
-        socket.on("error", (err) => {
-            socket.destroy();
-            return res.status(500).json({
-                success: false,
-                code: err.code,
-                error: err.message,
-                host: smtpHost,
-                ip: smtpLookup.address,
-                port: smtpPort,
-            });
-        });
-    } catch (err) {
-        return res.status(500).json({
-            success: false,
-            error: err.message || "SMTP test hatası",
-        });
-    }
 });
 
 app.post("/api/send-invoice-report", async (req, res) => {
@@ -114,6 +63,13 @@ app.post("/api/send-invoice-report", async (req, res) => {
             attachmentBase64,
             attachmentFileName,
         } = req.body;
+
+        if (!process.env.RESEND_API_KEY) {
+            return res.status(500).json({
+                success: false,
+                error: "RESEND_API_KEY sunucuda tanımlı değil.",
+            });
+        }
 
         if (!Array.isArray(to) || to.length === 0) {
             return res.status(400).json({
@@ -129,58 +85,40 @@ app.post("/api/send-invoice-report", async (req, res) => {
             });
         }
 
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-            return res.status(500).json({
-                success: false,
-                error: "SMTP kullanıcı adı veya şifre eksik.",
-            });
-        }
+        const attachments = attachmentBase64
+            ? [
+                {
+                    filename: attachmentFileName || "fatura_raporu.xlsx",
+                    content: attachmentBase64,
+                    contentType:
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                },
+            ]
+            : [];
 
-        const smtpHost = process.env.SMTP_HOST || "smtp.office365.com";
-        const smtpPort = Number(process.env.SMTP_PORT || 587);
-        const smtpLookup = await dns.promises.lookup(smtpHost, { family: 4 });
-
-        console.log("SMTP IPv4:", smtpLookup.address);
-
-        const transporter = nodemailer.createTransport({
-            host: smtpLookup.address,
-            port: smtpPort,
-            secure: false,
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
-            },
-            requireTLS: true,
-            tls: {
-                servername: smtpHost,
-                rejectUnauthorized: false,
-            },
-            connectionTimeout: 20000,
-            greetingTimeout: 20000,
-            socketTimeout: 30000,
-        });
-
-        await transporter.sendMail({
-            from: `"Odak TMS" <${process.env.SMTP_USER}>`,
-            to: to.join(","),
-            cc: Array.isArray(cc) && cc.length > 0 ? cc.join(",") : undefined,
+        const result = await resend.emails.send({
+            from: process.env.RESEND_FROM || "onboarding@resend.dev",
+            to,
+            cc: Array.isArray(cc) && cc.length > 0 ? cc : undefined,
             subject,
             html,
-            attachments: attachmentBase64
-                ? [
-                    {
-                        filename: attachmentFileName || "fatura_raporu.xlsx",
-                        content: Buffer.from(attachmentBase64, "base64"),
-                        contentType:
-                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    },
-                ]
-                : [],
+            attachments,
         });
+
+        if (result.error) {
+            console.error("RESEND MAIL HATASI:", result.error);
+            return res.status(500).json({
+                success: false,
+                error:
+                    result.error.message ||
+                    "Resend mail gönderimi başarısız oldu.",
+            });
+        }
 
         return res.status(200).json({
             success: true,
             message: "Mail başarıyla gönderildi.",
+            id: result.data?.id || null,
         });
     } catch (err) {
         console.error("MAIL GÖNDERME HATASI:", err);
@@ -262,6 +200,7 @@ app.listen(PORT, "0.0.0.0", () => {
     console.log("TMS PROXY SERVER BAŞLADI");
     console.log(`PORT: ${PORT}`);
     console.log(`NODE_ENV: ${process.env.NODE_ENV || "development"}`);
+    console.log("MAIL PROVIDER: RESEND");
     console.log("================================");
 });
 
