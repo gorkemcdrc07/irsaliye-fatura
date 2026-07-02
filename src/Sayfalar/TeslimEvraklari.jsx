@@ -446,8 +446,17 @@ function TeslimEvraklari() {
                     `/odak-api/api/tmsdespatch/vehicletrackinggetbytmsdespatchid?tmsDespatchId=${encodeURIComponent(tmsDespatchId)}`
                 );
 
-                const takipListesi = takipListesiBul(data);
-                const takip = takipOzetiOlustur(takipListesi[0]);
+                const takipListesi = takipListesiBul(data).sort((a, b) => {
+                    const tarihA = new Date(takipTarihDegeri(a)).getTime();
+                    const tarihB = new Date(takipTarihDegeri(b)).getTime();
+
+                    return tarihA - tarihB;
+                });
+
+                const takip = takipOzetiOlustur(
+                    takipListesi[takipListesi.length - 1] || null
+                );
+
                 evrakGuncelle(evrak, {
                     takip,
                     takipListesi,
@@ -882,7 +891,7 @@ function TeslimEvraklari() {
                                     <th>Tarih</th>
                                     <th>Sefer Durumu</th>
                                     <th>Evrak Durumu</th>
-                                    <th>Araç Takip</th>
+                                    <th>Görüşme Notu</th>
                                     <th className="col-center">Görüntü / İrsaliye Sayısı</th>
                                 </tr>
                             </thead>
