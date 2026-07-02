@@ -45,9 +45,12 @@ function TeslimEvraklari() {
     const [gorselZoom, setGorselZoom] = useState(1);
     const [logBilgisi, setLogBilgisi] = useState(null);
     const [musteriSiparisNoKurali, setMusteriSiparisNoKurali] = useState(false);
+    const [takipPanel, setTakipPanel] = useState(null);
+    const [takipPanelPozisyon, setTakipPanelPozisyon] = useState({ x: 80, y: 90 });
 
 
     const istekNo = useRef(0);
+    const takipDragRef = useRef({ aktif: false, offsetX: 0, offsetY: 0 });
 
     function tokenBul(data) {
         return (
@@ -228,13 +231,17 @@ function TeslimEvraklari() {
         return data;
     }
 
-    function takipVerisiBul(data) {
+    function takipListesiBul(data) {
         const kaynak = data?.data || data?.result || data?.items || data;
-        if (Array.isArray(kaynak)) return kaynak[0] || null;
-        if (Array.isArray(kaynak?.data)) return kaynak.data[0] || null;
-        if (Array.isArray(kaynak?.items)) return kaynak.items[0] || null;
-        if (kaynak && typeof kaynak === "object") return kaynak;
-        return null;
+        if (Array.isArray(kaynak)) return kaynak;
+        if (Array.isArray(kaynak?.data)) return kaynak.data;
+        if (Array.isArray(kaynak?.items)) return kaynak.items;
+        if (kaynak && typeof kaynak === "object") return [kaynak];
+        return [];
+    }
+
+    function takipVerisiBul(data) {
+        return takipListesiBul(data)[0] || null;
     }
 
     function takipAlanBul(obj, alanlar) {
@@ -284,6 +291,56 @@ function TeslimEvraklari() {
         return tarih.toLocaleString("tr-TR");
     }
 
+    function takipKonumMetni(takip) {
+        if (!takip) return "-";
+        const sehir = takipAlanBul(takip, ["cityName", "CityName", "city", "City"]);
+        const ilce = takipAlanBul(takip, ["countyName", "CountyName", "district", "District", "county", "County"]);
+        const adres = takipAlanBul(takip, ["address", "Address", "location", "Location", "lastLocation", "LastLocation"]);
+        return [sehir, ilce].filter(Boolean).join(" / ") || adres || "-";
+    }
+
+    function takipDurumMetni(takip) {
+        return takipAlanBul(takip, ["description", "Description", "statu", "status", "Status", "vehicleStatus", "VehicleStatus"]) || "-";
+    }
+
+    function takipKullaniciMetni(takip) {
+        return takipAlanBul(takip, ["tmsDespatchCreatedBy", "createdBy", "CreatedBy", "userName", "UserName"]) || "-";
+    }
+
+    function takipTarihDegeri(takip) {
+        return takipAlanBul(takip, ["createdDate", "CreatedDate", "trackingDate", "TrackingDate", "date", "Date", "lastSignalDate", "LastSignalDate"]) || "";
+    }
+
+    function takipPanelAc(evrak, event) {
+        event?.stopPropagation();
+        setTakipPanel(evrak);
+    }
+
+    function takipPanelSurukleBaslat(event) {
+        takipDragRef.current = {
+            aktif: true,
+            offsetX: event.clientX - takipPanelPozisyon.x,
+            offsetY: event.clientY - takipPanelPozisyon.y,
+        };
+
+        const hareket = (moveEvent) => {
+            if (!takipDragRef.current.aktif) return;
+            setTakipPanelPozisyon({
+                x: Math.max(12, moveEvent.clientX - takipDragRef.current.offsetX),
+                y: Math.max(12, moveEvent.clientY - takipDragRef.current.offsetY),
+            });
+        };
+
+        const birak = () => {
+            takipDragRef.current.aktif = false;
+            window.removeEventListener("mousemove", hareket);
+            window.removeEventListener("mouseup", birak);
+        };
+
+        window.addEventListener("mousemove", hareket);
+        window.addEventListener("mouseup", birak);
+    }
+
     async function evraklariGetir() {
 
         const baslamaZamani = performance.now();
@@ -309,6 +366,7 @@ function TeslimEvraklari() {
         setHata("");
         setEvraklar([]);
         setSeciliEvrak(null);
+        setTakipPanel(null);
         setSeciliDosyaIndex(0);
         setBirlesikPdfUrl("");
         setIlkYuklemeTamamlandi(false);
@@ -339,6 +397,7 @@ function TeslimEvraklari() {
                 fileContentLoading: true,
                 fileContentError: "",
                 takip: null,
+                takipListesi: [],
                 takipLoading: true,
                 takipError: "",
             }));
@@ -375,6 +434,7 @@ function TeslimEvraklari() {
             if (!tmsDespatchId) {
                 evrakGuncelle(evrak, {
                     takip: null,
+                    takipListesi: [],
                     takipLoading: false,
                     takipError: "TMS Despatch ID yok.",
                 });
@@ -386,15 +446,18 @@ function TeslimEvraklari() {
                     `/odak-api/api/tmsdespatch/vehicletrackinggetbytmsdespatchid?tmsDespatchId=${encodeURIComponent(tmsDespatchId)}`
                 );
 
-                const takip = takipOzetiOlustur(takipVerisiBul(data));
+                const takipListesi = takipListesiBul(data);
+                const takip = takipOzetiOlustur(takipListesi[0]);
                 evrakGuncelle(evrak, {
                     takip,
+                    takipListesi,
                     takipLoading: false,
-                    takipError: takip ? "" : "Takip verisi yok.",
+                    takipError: takipListesi.length > 0 ? "" : "Takip verisi yok.",
                 });
             } catch (error) {
                 evrakGuncelle(evrak, {
                     takip: null,
+                    takipListesi: [],
                     takipLoading: false,
                     takipError: error.message || "Takip verisi çekilemedi.",
                 });
@@ -869,23 +932,29 @@ function TeslimEvraklari() {
                                                 </span>
                                             </td>
                                             <td>
-                                                {evrak.takipLoading ? (
-                                                    <span className="tracking-chip loading">
-                                                        <i className="ti ti-loader-2 spin" /> Yükleniyor
-                                                    </span>
-                                                ) : evrak.takipError ? (
-                                                    <span className="tracking-chip error">
-                                                        <i className="ti ti-map-off" /> {evrak.takipError}
-                                                    </span>
-                                                ) : (
-                                                    <div className="tracking-cell">
-                                                        <span className="cell-primary">{deger(evrak.takip?.konum || evrak.takip?.durum)}</span>
-                                                        <span className="cell-secondary">
-                                                            {takipTarihFormatla(evrak.takip?.tarih)}
-                                                            {evrak.takip?.hiz ? ` · ${evrak.takip.hiz} km/s` : ""}
+                                                <button
+                                                    type="button"
+                                                    className={`tracking-open-btn ${evrak.takipError ? "error" : ""}`}
+                                                    onClick={(e) => takipPanelAc(evrak, e)}
+                                                    disabled={evrak.takipLoading}
+                                                >
+                                                    {evrak.takipLoading ? (
+                                                        <span className="tracking-chip loading">
+                                                            <i className="ti ti-loader-2 spin" /> Yükleniyor
                                                         </span>
-                                                    </div>
-                                                )}
+                                                    ) : evrak.takipError ? (
+                                                        <span className="tracking-chip error">
+                                                            <i className="ti ti-map-off" /> {evrak.takipError}
+                                                        </span>
+                                                    ) : (
+                                                        <div className="tracking-cell">
+                                                            <span className="cell-primary">{takipDurumMetni(evrak.takip)}</span>
+                                                            <span className="cell-secondary">
+                                                                {takipKonumMetni(evrak.takip)} · {takipTarihFormatla(takipTarihDegeri(evrak.takip))}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </button>
                                             </td>
                                             <td className="col-center">
                                                 {evrak.fileContentLoading ? (
@@ -1096,6 +1165,69 @@ function TeslimEvraklari() {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {takipPanel && (
+                <div
+                    className="tracking-floating-panel"
+                    style={{ left: takipPanelPozisyon.x, top: takipPanelPozisyon.y }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="tracking-panel-header" onMouseDown={takipPanelSurukleBaslat}>
+                        <div>
+                            <span>Araç Takip Hareketleri</span>
+                            <strong>{deger(takipPanel.documentNo)} · {deger(takipPanel.plateNumber)}</strong>
+                        </div>
+                        <button type="button" onClick={() => setTakipPanel(null)} aria-label="Kapat">
+                            <i className="ti ti-x" />
+                        </button>
+                    </div>
+
+                    <div className="tracking-panel-summary">
+                        <div>
+                            <span>Sürücü</span>
+                            <strong>{deger(takipPanel.fullName)}</strong>
+                        </div>
+                        <div>
+                            <span>Kayıt</span>
+                            <strong>{takipPanel.takipListesi?.length || 0}</strong>
+                        </div>
+                    </div>
+
+                    {takipPanel.takipLoading ? (
+                        <div className="tracking-panel-empty">
+                            <i className="ti ti-loader-2 spin" />
+                            Takip verileri yükleniyor...
+                        </div>
+                    ) : takipPanel.takipError ? (
+                        <div className="tracking-panel-empty error">
+                            <i className="ti ti-map-off" />
+                            {takipPanel.takipError}
+                        </div>
+                    ) : (
+                        <div className="tracking-timeline">
+                            {(takipPanel.takipListesi || []).map((takip, index) => (
+                                <div className="tracking-timeline-item" key={`${takipTarihDegeri(takip)}-${index}`}>
+                                    <div className="tracking-dot" />
+                                    <div className="tracking-item-card">
+                                        <div className="tracking-item-top">
+                                            <strong>{takipDurumMetni(takip)}</strong>
+                                            <span>{takipTarihFormatla(takipTarihDegeri(takip))}</span>
+                                        </div>
+                                        <div className="tracking-item-location">
+                                            <i className="ti ti-map-pin" />
+                                            {takipKonumMetni(takip)}
+                                        </div>
+                                        <div className="tracking-item-user">
+                                            <i className="ti ti-user" />
+                                            {takipKullaniciMetni(takip)}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
             {buyukGorsel && (
