@@ -6,8 +6,57 @@ import { saveAs } from "file-saver";
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function tarihFormatla(t) {
     if (!t) return "–";
-    return new Date(t).toLocaleDateString("tr-TR");
+    const date = parseDateSafe(t);
+    return date ? date.toLocaleDateString("tr-TR") : "–";
 }
+
+function parseDateSafe(value) {
+    if (!value) return null;
+
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+
+    const raw = String(value).trim();
+    if (!raw) return null;
+
+    // API bazen tarih alanını UTC gibi gönderdiği için sadece YYYY-MM-DD kısmını
+    // yerel tarih olarak alıyoruz. Böylece Excel'de 1 gün kayma olmaz.
+    const isoDateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoDateMatch) {
+        const [, y, m, d] = isoDateMatch;
+        return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+
+    const trDateMatch = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
+    if (trDateMatch) {
+        const [, d, m, y] = trDateMatch;
+        return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+
+    const date = new Date(raw);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function dateOnlyText(value) {
+    const date = parseDateSafe(value);
+    return date ? date.toLocaleDateString("tr-TR") : "";
+}
+
+function isDateInRange(value, startDate, endDate) {
+    const date = parseDateSafe(value);
+    const start = parseDateSafe(startDate);
+    const end = parseDateSafe(endDate);
+
+    if (!date || !start || !end) return false;
+
+    date.setHours(0, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    return date >= start && date <= end;
+}
+
 function tutarFormatla(t) {
     if (t === null || t === undefined) return "–";
     return Number(t).toLocaleString("tr-TR", {
@@ -209,9 +258,9 @@ function MultiFilter({ label, options, selected, onChange, placeholder }) {
     );
 }
 
-// ─── Excel export ─────────────────────────────────────────────────────────────
-async function excelIndir(veriler, selectedProjects) {
-    const seciliVeriler = veriler
+// ─── Excel export / mail attachment helpers ───────────────────────────────────
+function raporVerileriniHazirla(veriler, selectedProjects) {
+    return veriler
         .filter(
             (item) =>
                 selectedProjects.includes(item.projeAdi) &&
@@ -230,6 +279,10 @@ async function excelIndir(veriler, selectedProjects) {
                 "tr"
             );
         });
+}
+
+async function excelBufferOlustur(veriler, selectedProjects) {
+    const seciliVeriler = raporVerileriniHazirla(veriler, selectedProjects);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "ODAK TMS";
@@ -247,28 +300,6 @@ async function excelIndir(veriler, selectedProjects) {
         white: "FFFFFF",
         text: "111827",
     };
-
-    const toplamTutar = seciliVeriler.reduce(
-        (s, i) => s + (Number(i.giderTutari) || 0),
-        0
-    );
-
-    const bagliSayi = seciliVeriler.filter(
-        (i) => i.faturaBagliMi === "Bağlı"
-    ).length;
-
-    const bekleyenSayi = seciliVeriler.filter(
-        (i) => i.faturaBagliMi !== "Bağlı"
-    ).length;
-
-    const bagliOran = seciliVeriler.length
-        ? bagliSayi / seciliVeriler.length
-        : 0;
-
-    const bugun = new Date().toLocaleDateString("tr-TR");
-
-
-
 
     // =========================
     // DETAY SAYFASI
@@ -291,15 +322,11 @@ async function excelIndir(veriler, selectedProjects) {
         { header: "Açıklama", key: "aciklama", width: 40 },
     ];
 
-    seciliVeriler
-        .filter(item => item.faturaBagliMi !== "Bağlı")
-        .forEach((item) => {
-            detay.addRow({
+    seciliVeriler.forEach((item) => {
+        detay.addRow({
             tipi: item.tipi || "",
             seferNo: item.seferNo || "",
-            seferTarihi: item.seferTarihi
-                ? new Date(item.seferTarihi)
-                : "",
+            seferTarihi: dateOnlyText(item.seferTarihi),
             faturaBagliMi: item.faturaBagliMi || "",
             tedarikciAdi: item.tedarikciAdi || "",
             giderHesapAdi: item.giderHesapAdi || "",
@@ -376,10 +403,25 @@ async function excelIndir(veriler, selectedProjects) {
         to: "K1",
     };
 
-    // =========================
-    // DOSYAYI İNDİR
-    // =========================
-    const buffer = await wb.xlsx.writeBuffer();
+    return wb.xlsx.writeBuffer();
+}
+
+function arrayBufferToBase64(buffer) {
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode(...chunk);
+    }
+
+    return btoa(binary);
+}
+
+async function excelIndir(veriler, selectedProjects) {
+    const bugun = new Date().toLocaleDateString("tr-TR");
+    const buffer = await excelBufferOlustur(veriler, selectedProjects);
     const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
@@ -460,6 +502,7 @@ function MailModal({ veriler, onClose }) {
 
     const [error, setError] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
+    const [mailSending, setMailSending] = useState(false);
 
     const [activePanel, setActivePanel] = useState("ayarlar"); // ayarlar | onizleme
 
@@ -931,7 +974,7 @@ function MailModal({ veriler, onClose }) {
         setMsg("success", "✓ Mail grubu silindi.");
     }
 
-    function handleSend() {
+    async function handleSend() {
         setError("");
         setSuccessMsg("");
 
@@ -945,38 +988,60 @@ function MailModal({ veriler, onClose }) {
             return;
         }
 
-        const mailTo = toEmails
-            .map((x) => x.trim())
-            .filter(Boolean)
-            .join(";");
-
+        const mailTo = toEmails.map((x) => x.trim()).filter(Boolean);
         const cc = Array.isArray(ccEmails)
-            ? ccEmails.map((x) => x.trim()).filter(Boolean).join(";")
-            : "";
+            ? ccEmails.map((x) => x.trim()).filter(Boolean)
+            : [];
 
-        if (!mailTo) {
+        if (mailTo.length === 0) {
             setMsg("error", "Kime alanı boş olamaz.");
             return;
         }
 
-        const plainBody =
-            `Merhaba,\n\n` +
-            `Fatura özet raporu hazırlanmıştır. Sefer detayları için ekte Excel dosyasını inceleyiniz.\n\n` +
-            `Toplam Kayıt: ${seciliVeriler.length}\n` +
-            `Toplam Tutar: ${tutarFormatla(toplamTutar)} TL\n` +
-            `Bağlı: ${bagli.length} | Bekleyen: ${bekleyen.length}\n\n` +
-            `İyi çalışmalar.\nOdak TMS`;
+        try {
+            setMailSending(true);
 
-        let mailUrl = `mailto:${encodeURIComponent(mailTo)}`;
-        mailUrl += `?subject=${encodeURIComponent(subject || "Fatura Raporu")}`;
-        mailUrl += `&body=${encodeURIComponent(plainBody)}`;
+            const html = ozetHtmlOlustur();
+            const excelBuffer = await excelBufferOlustur(veriler, selectedProjects);
+            const attachmentBase64 = arrayBufferToBase64(excelBuffer);
+            const bugun = new Date().toLocaleDateString("tr-TR").replaceAll(".", "_");
 
-        if (cc) {
-            mailUrl += `&cc=${encodeURIComponent(cc)}`;
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/api/send-invoice-report`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        to: mailTo,
+                        cc,
+                        subject: subject || "Fatura Raporu",
+                        html,
+                        attachmentBase64,
+                        attachmentFileName: `fatura_raporu_${bugun}.xlsx`,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Mail gönderilemedi.");
+            }
+            setMsg("success", "✓ Mail başarıyla gönderildi.");
+        } catch (err) {
+            setMsg(
+                "error",
+                err instanceof Error
+                    ? err.message
+                    : "Mail gönderilirken bilinmeyen bir hata oluştu."
+            );
+        } finally {
+            setMailSending(false);
         }
-
-        window.location.href = mailUrl;
     }
+
     return (
         <div className="modal-backdrop">
             <div className="modal-box mail-modal-v2" role="dialog" aria-modal="true">
@@ -1294,9 +1359,9 @@ function MailModal({ veriler, onClose }) {
                         <button
                             className="btn-send"
                             onClick={handleSend}
-                            disabled={!toEmails || !selectedProjects.length}
+                            disabled={mailSending || !toEmails?.length || !selectedProjects.length}
                         >
-                            ✉ Maili Aç
+                            {mailSending ? "⏳ Mail Gönderiliyor..." : "✉ Mail Gönder"}
                         </button>
                     </div>
                 </div>
@@ -1367,11 +1432,17 @@ export default function Fatura() {
             }
 
             const liste = Array.isArray(data?.Data) ? data.Data : [];
-            const spotListe = liste.filter(
-                (item) =>
+
+            // API bazen verilen tarih aralığını sefer tarihine göre filtrelemeyebiliyor.
+            // Bu yüzden frontend tarafında da TMSDespatchesDespatchDate alanına göre
+            // kesin tarih filtresi uyguluyoruz. Excel de bu filtrelenmiş listeyi kullanır.
+            const spotListe = liste.filter((item) => {
+                return (
                     item.SpecialGroupName === "SPOT" &&
-                    item.Tipi === "Gider"
-            );
+                    item.Tipi === "Gider" &&
+                    isDateInRange(item.TMSDespatchesDespatchDate, startDate, endDate)
+                );
+            });
             const bitisZamani = performance.now();
 
             setLogBilgisi({
