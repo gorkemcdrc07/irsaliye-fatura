@@ -1267,7 +1267,7 @@ function TeslimEvraklari() {
                                         <div className="tracking-item-top modern">
                                             <div>
                                                 <strong>{takipDurumMetni(takip)}</strong>
-                                                <small>Veri Giriş Tarihi : {takipTarihFormatla(takipTarihDegeri(takip))}</small>
+                                                <small>Veri Giriş Tarihi: {takipTarihFormatla(takipTarihDegeri(takip))}</small>
                                             </div>
                                             <span className="movement-badge">Hareket {index + 1}</span>
                                         </div>
