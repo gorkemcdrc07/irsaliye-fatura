@@ -77,17 +77,33 @@ app.post("/api/send-invoice-report", async (req, res) => {
             });
         }
 
-        const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || "smtp.office365.com",
-            port: Number(process.env.SMTP_PORT || 587),
-            secure: false,
+        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+            return res.status(500).json({
+                success: false,
+                error: "SMTP kullanıcı adı veya şifre eksik.",
+            });
+        }
+
+        const smtpHost = process.env.SMTP_HOST || "smtp.office365.com";
+        const smtpPort = Number(process.env.SMTP_PORT || 587);
+
+        const smtpLookup = await dns.promises.lookup(smtpHost, {
             family: 4,
+        });
+
+        console.log("SMTP IPv4:", smtpLookup.address);
+
+        const transporter = nodemailer.createTransport({
+            host: smtpLookup.address,
+            port: smtpPort,
+            secure: false,
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
             },
             requireTLS: true,
             tls: {
+                servername: smtpHost,
                 rejectUnauthorized: false,
             },
             connectionTimeout: 20000,
