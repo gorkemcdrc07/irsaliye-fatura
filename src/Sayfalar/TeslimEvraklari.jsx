@@ -1235,11 +1235,15 @@ function TeslimEvraklari() {
                         </div>
                         <div>
                             <span>Son Durum</span>
-                            <strong>{takipPanel.takipError ? "-" : takipDurumMetni(takipPanel.takip)}</strong>
+                            <strong>{seferDurumuBul(seferDurumDegeriBul(takipPanel))}</strong>
                         </div>
                         <div>
                             <span>Son Konum</span>
-                            <strong>{takipPanel.takipError ? "-" : takipKonumMetni(takipPanel.takip)}</strong>
+                            <strong>
+                                {takipPanel.takipError
+                                    ? "-"
+                                    : takipKonumMetni(takipPanel.takipListesi?.[takipPanel.takipListesi.length - 1])}
+                            </strong>
                         </div>
                     </div>
 
@@ -1263,7 +1267,7 @@ function TeslimEvraklari() {
                                         <div className="tracking-item-top modern">
                                             <div>
                                                 <strong>{takipDurumMetni(takip)}</strong>
-                                                <small>{takipTarihFormatla(takipTarihDegeri(takip))}</small>
+                                                <small>Veri Giriş Tarihi : {takipTarihFormatla(takipTarihDegeri(takip))}</small>
                                             </div>
                                             <span className="movement-badge">Hareket {index + 1}</span>
                                         </div>
