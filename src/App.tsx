@@ -15,17 +15,53 @@ import Karlilik from "./Sayfalar/karlilik";
 import Login from "./Sayfalar/Login";
 import KullaniciYonetimi from "./Sayfalar/KullaniciYonetimi";
 
-function getPermissions(): string[] {
+function normalizeValue(value: unknown): string {
+    return String(value || "")
+        .trim()
+        .toLocaleLowerCase("tr-TR")
+        .replaceAll("ý", "i")
+        .replaceAll("Ý", "i");
+}
+
+function getLoginUser(): any | null {
     try {
-        const raw = JSON.parse(localStorage.getItem("permissions") || "[]");
-        return Array.isArray(raw) ? raw : [];
+        const raw =
+            localStorage.getItem("loginUser") ||
+            localStorage.getItem("user") ||
+            localStorage.getItem("aktifKullanici");
+
+        return raw ? JSON.parse(raw) : null;
     } catch {
-        return [];
+        return null;
     }
 }
 
-function normalizeValue(value: unknown): string {
-    return String(value || "").trim().toLowerCase();
+function getKullaniciAdi(): string {
+    const user = getLoginUser();
+
+    return (
+        localStorage.getItem("kullaniciAdi") ||
+        localStorage.getItem("user_name") ||
+        user?.user_name ||
+        user?.kullaniciAdi ||
+        ""
+    );
+}
+
+function getPermissions(): string[] {
+    try {
+        const user = getLoginUser();
+
+        const raw =
+            localStorage.getItem("permissions") ||
+            JSON.stringify(user?.permissions || []);
+
+        const parsed = JSON.parse(raw);
+
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
 }
 
 function hasPermission(permissions: string[], ...keys: string[]): boolean {
@@ -34,7 +70,13 @@ function hasPermission(permissions: string[], ...keys: string[]): boolean {
 }
 
 function getRole(): string {
-    return normalizeValue(localStorage.getItem("role") || "kullanici");
+    const user = getLoginUser();
+
+    return normalizeValue(
+        localStorage.getItem("role") ||
+        user?.role ||
+        "kullanici"
+    );
 }
 
 function getDefaultPath(): string {
@@ -57,7 +99,7 @@ function getDefaultPath(): string {
 
     if (hasPermission(permissions, "evrak")) return "/teslim-evraklari";
     if (hasPermission(permissions, "fatura")) return "/fatura";
-    if (hasPermission(permissions, "karlilik")) return "/karlilik";
+    if (hasPermission(permissions, "karlilik", "karlýlýk")) return "/karlilik";
 
     return "/login";
 }
@@ -69,7 +111,7 @@ type ProtectedRouteProps = {
 };
 
 function ProtectedRoute({ children, permission, role }: ProtectedRouteProps) {
-    const kullaniciAdi = localStorage.getItem("kullaniciAdi");
+    const kullaniciAdi = getKullaniciAdi();
     const permissions = getPermissions();
     const userRole = getRole();
 
@@ -94,7 +136,7 @@ function ProtectedRoute({ children, permission, role }: ProtectedRouteProps) {
 
 function Layout() {
     const location = useLocation();
-    const kullaniciAdi = localStorage.getItem("kullaniciAdi");
+    const kullaniciAdi = getKullaniciAdi();
 
     const topbarGoster = location.pathname !== "/login" && !!kullaniciAdi;
 
@@ -114,10 +156,7 @@ function Layout() {
                     }
                 />
 
-                <Route
-                    path="/"
-                    element={<Navigate to={getDefaultPath()} replace />}
-                />
+                <Route path="/" element={<Navigate to={getDefaultPath()} replace />} />
 
                 <Route
                     path="/tedarik-analiz"
@@ -156,7 +195,7 @@ function Layout() {
                 <Route
                     path="/karlilik"
                     element={
-                        <ProtectedRoute permission="karlilik">
+                        <ProtectedRoute permission={["karlilik", "karlýlýk"]}>
                             <Karlilik />
                         </ProtectedRoute>
                     }
