@@ -10,30 +10,43 @@ const AUTH_MESSAGES = [
     "Yönlendiriliyor...",
 ];
 
-function yetkiVar(permissions, ...keys) {
-    const temizYetkiler = (permissions || []).map((p) =>
-        String(p).trim().toLowerCase()
-    );
+function normalizeValue(value) {
+    return String(value || "")
+        .trim()
+        .toLocaleLowerCase("tr-TR")
+        .replaceAll("ı", "i")
+        .replaceAll("İ", "i");
+}
 
-    return keys.some((key) =>
-        temizYetkiler.includes(String(key).trim().toLowerCase())
-    );
+function yetkiVar(permissions, ...keys) {
+    const temizYetkiler = (permissions || []).map(normalizeValue);
+    return keys.some((key) => temizYetkiler.includes(normalizeValue(key)));
 }
 
 function getDefaultPath(role, permissions) {
-    const temizRole = String(role || "kullanici").trim().toLowerCase();
+    const temizRole = normalizeValue(role || "kullanici");
 
     if (temizRole === "admin") return "/kullanici-yonetimi";
 
-    if (yetkiVar(permissions, "tedarik_analiz", "tedarik", "tedarik-analiz", "tedarikAnaliz")) {
+    if (
+        yetkiVar(
+            permissions,
+            "tedarik_analiz",
+            "tedarik",
+            "tedarik-analiz",
+            "tedarikAnaliz"
+        )
+    ) {
         return "/tedarik-analiz";
     }
 
-    if (yetkiVar(permissions, "evrak")) return "/";
+    if (yetkiVar(permissions, "evrak")) return "/teslim-evraklari";
     if (yetkiVar(permissions, "fatura")) return "/fatura";
+    if (yetkiVar(permissions, "karlilik", "karlılık")) return "/karlilik";
 
     return null;
 }
+
 function AuthTransition({ user, onComplete }) {
     const [progress, setProgress] = useState(0);
     const [msgIndex, setMsgIndex] = useState(0);
@@ -83,7 +96,7 @@ function AuthTransition({ user, onComplete }) {
                 <div className="at-name">{user.user_name}</div>
 
                 <div className="at-role">
-                    {String(user.role || "").toLowerCase() === "admin"
+                    {normalizeValue(user.role) === "admin"
                         ? "Admin"
                         : user.permissions?.join(" · ") || "Kullanıcı"}
                 </div>
@@ -154,10 +167,17 @@ function Login() {
 
             const role = user.role || "kullanici";
 
+            const userForState = {
+                ...user,
+                permissions,
+                role,
+            };
+
             localStorage.setItem("kullaniciAdi", user.user_name || "");
-            localStorage.setItem("customerId", user.customer_id || "");
+            localStorage.setItem("customerId", String(user.customer_id || ""));
             localStorage.setItem("permissions", JSON.stringify(permissions));
             localStorage.setItem("role", role);
+            localStorage.setItem("loginUser", JSON.stringify(userForState));
             localStorage.setItem(
                 "customerOrderNoRule",
                 String(user.customer_order_no_rule === true)
@@ -165,15 +185,10 @@ function Login() {
             localStorage.setItem("token", "supabase-login");
             localStorage.setItem("tokenTime", Date.now().toString());
 
-            const userForState = {
-                ...user,
-                permissions,
-                role,
-            };
-
             console.log("LOGIN USER:", userForState);
             console.log("PERMISSIONS:", permissions);
             console.log("ROLE:", role);
+            console.log("DEFAULT PATH:", getDefaultPath(role, permissions));
 
             setPhase("out");
 
