@@ -1,43 +1,110 @@
-﻿@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap");
+﻿@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap");
 
 .karlilik-page {
+    --bg: #f2f3fa;
+    --surface: #ffffff;
+    --surface-2: #f8f9fd;
+    --ink: #0d1220;
+    --ink-soft: #5b6478;
+    --ink-faint: #94a0b8;
+    --line: #e7e9f4;
+    --accent: #4f5df7;
+    --accent-2: #7c8cff;
+    --accent-soft: #eef0ff;
+    --accent-strong: #3a46d1;
+    --positive: #0ea472;
+    --positive-soft: #e5f8f1;
+    --negative: #e5484d;
+    --negative-soft: #fdecec;
+    --amber: #d97a1f;
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 10px;
+    --shadow-soft: 0 10px 30px -14px rgba(20, 24, 50, 0.16);
+    --shadow-strong: 0 24px 60px -20px rgba(13, 18, 32, 0.4);
+    --font-display: "Space Grotesk", "Inter", sans-serif;
+    --font-body: "Inter", -apple-system, sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
     min-height: calc(100vh - 72px);
     padding: 28px;
-    background: #f4f6fb;
-    font-family: "Inter", -apple-system, sans-serif;
-    color: #0f172a;
+    background: radial-gradient(circle at 12% -10%, rgba(79, 93, 247, 0.08), transparent 42%), radial-gradient(circle at 100% 0%, rgba(14, 164, 114, 0.06), transparent 38%), var(--bg);
+    font-family: var(--font-body);
+    color: var(--ink);
 }
 
     .karlilik-page h1,
     .karlilik-page h2,
+    .karlilik-page h3,
     .karlilik-page strong {
-        font-family: "Space Grotesk", "Inter", sans-serif;
+        font-family: var(--font-display);
     }
 
+@media (prefers-reduced-motion: reduce) {
+    .karlilik-page * {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+/* ---------------------------------------------------------------- */
+/* Header                                                            */
+/* ---------------------------------------------------------------- */
+
 .karlilik-header {
-    background: linear-gradient(135deg, #0b1220 0%, #161f33 55%, #1f2a44 100%);
+    background: linear-gradient(135deg, #090d18 0%, #121a2e 48%, #1c2748 100%);
     color: #fff;
-    border-radius: 24px;
-    padding: 34px;
+    border-radius: var(--radius-lg);
+    padding: 36px 34px 30px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    box-shadow: 0 20px 50px rgba(11, 18, 32, 0.28);
+    box-shadow: var(--shadow-strong);
     position: relative;
     overflow: hidden;
+    animation: fade-up 0.5s ease both;
 }
 
     .karlilik-header::after {
         content: "";
         position: absolute;
         top: -60%;
-        right: -10%;
-        width: 360px;
-        height: 360px;
-        background: radial-gradient(circle, rgba(79, 107, 255, 0.35), transparent 70%);
+        right: -8%;
+        width: 380px;
+        height: 380px;
+        background: radial-gradient(circle, rgba(79, 93, 247, 0.38), transparent 70%);
         pointer-events: none;
     }
+
+    .karlilik-header::before {
+        content: "";
+        position: absolute;
+        bottom: -40%;
+        left: -6%;
+        width: 320px;
+        height: 320px;
+        background: radial-gradient(circle, rgba(14, 164, 114, 0.16), transparent 72%);
+        pointer-events: none;
+    }
+
+/* İmza öğesi: alt kenarda hafifçe akan bir "güzergah" çizgisi — sefer/rota temasına gönderme */
+.route-line {
+    position: absolute;
+    left: 34px;
+    right: 34px;
+    bottom: 20px;
+    height: 2px;
+    background-image: repeating-linear-gradient( 90deg, rgba(255, 255, 255, 0.4) 0 10px, transparent 10px 22px );
+    opacity: 0.45;
+    animation: route-move 2.6s linear infinite;
+}
+
+@keyframes route-move {
+    to {
+        background-position: 32px 0;
+    }
+}
 
 .header-text {
     position: relative;
@@ -50,9 +117,9 @@
     gap: 6px;
     padding: 7px 13px;
     border-radius: 999px;
-    background: rgba(79, 107, 255, 0.18);
-    border: 1px solid rgba(79, 107, 255, 0.4);
-    color: #c7d2fe;
+    background: rgba(79, 93, 247, 0.2);
+    border: 1px solid rgba(124, 140, 255, 0.4);
+    color: #c9d0ff;
     font-size: 12.5px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -61,47 +128,81 @@
 
 .karlilik-header h1 {
     margin: 0;
-    font-size: 32px;
+    font-size: 33px;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
 }
 
 .karlilik-header p {
     margin: 12px 0 0;
-    color: #94a3b8;
+    color: #9aa3bd;
     max-width: 620px;
-    line-height: 1.55;
+    line-height: 1.6;
     font-size: 14.5px;
 }
 
-.upload-main-btn {
+.header-actions {
     position: relative;
     z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.upload-main-btn {
     border: 0;
     border-radius: 14px;
     padding: 14px 20px;
-    background: #4f6bff;
+    background: var(--accent);
     color: #fff;
     font-weight: 600;
     font-size: 14px;
+    font-family: var(--font-body);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 8px;
     white-space: nowrap;
-    box-shadow: 0 12px 24px rgba(79, 107, 255, 0.35);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 12px 26px rgba(79, 93, 247, 0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
     .upload-main-btn:hover {
         transform: translateY(-1px);
-        box-shadow: 0 16px 30px rgba(79, 107, 255, 0.45);
+        box-shadow: 0 16px 32px rgba(79, 93, 247, 0.5);
     }
+
+    .upload-main-btn:active {
+        transform: translateY(0);
+    }
+
+    .upload-main-btn.ghost {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        box-shadow: none;
+    }
+
+        .upload-main-btn.ghost:hover {
+            background: rgba(255, 255, 255, 0.13);
+            box-shadow: none;
+        }
+
+    .upload-main-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+/* ---------------------------------------------------------------- */
+/* Drop zone / alerts                                                */
+/* ---------------------------------------------------------------- */
 
 .excel-drop-zone {
     margin-top: 18px;
-    background: #fff;
-    border: 1.5px dashed #c7cedb;
+    background: var(--surface);
+    border: 1.5px dashed #ccd2e4;
     border-radius: 20px;
     padding: 22px;
     display: flex;
@@ -112,16 +213,16 @@
 }
 
     .excel-drop-zone:hover {
-        border-color: #4f6bff;
-        background: #f6f8ff;
+        border-color: var(--accent);
+        background: var(--accent-soft);
     }
 
 .drop-icon {
     width: 52px;
     height: 52px;
     border-radius: 16px;
-    background: #eef1ff;
-    color: #4f6bff;
+    background: var(--accent-soft);
+    color: var(--accent);
     display: grid;
     place-items: center;
     font-size: 26px;
@@ -130,23 +231,23 @@
 
 .excel-drop-zone strong {
     display: block;
-    color: #0f172a;
+    color: var(--ink);
     font-size: 15.5px;
     font-weight: 600;
 }
 
 .excel-drop-zone span {
     display: block;
-    color: #64748b;
+    color: var(--ink-soft);
     margin-top: 4px;
     font-size: 13px;
 }
 
 .drop-status {
     margin-left: auto;
-    background: #ecfdf5;
-    color: #059669;
-    border: 1px solid #a7f3d0;
+    background: var(--positive-soft);
+    color: var(--positive);
+    border: 1px solid #b7ecd8;
     font-size: 12px;
     font-weight: 600;
     padding: 6px 12px;
@@ -167,15 +268,15 @@
 }
 
 .karlilik-alert {
-    background: #fef2f2;
+    background: var(--negative-soft);
     color: #b91c1c;
-    border: 1px solid #fecaca;
+    border: 1px solid #f7c6c6;
 }
 
 .karlilik-loading {
-    background: #eff6ff;
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    border: 1px solid #cdd3ff;
 }
 
 .spin {
@@ -188,23 +289,46 @@
     }
 }
 
+@keyframes fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ---------------------------------------------------------------- */
+/* KPI cards                                                         */
+/* ---------------------------------------------------------------- */
+
 .kpi-grid {
     margin-top: 20px;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
+    animation: fade-up 0.5s ease 0.05s both;
 }
 
 .kpi-card {
-    background: #fff;
-    border: 1px solid #e9ecf2;
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: 18px;
     padding: 20px;
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+    box-shadow: var(--shadow-soft);
     display: flex;
     align-items: center;
     gap: 14px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
+
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 34px -14px rgba(20, 24, 50, 0.22);
+    }
 
 .kpi-icon {
     width: 42px;
@@ -217,42 +341,47 @@
 }
 
     .kpi-icon.income {
-        background: #eef1ff;
-        color: #4f6bff;
+        background: var(--accent-soft);
+        color: var(--accent);
     }
 
     .kpi-icon.expense {
-        background: #fff1f2;
-        color: #f43f5e;
+        background: var(--negative-soft);
+        color: var(--negative);
     }
 
     .kpi-icon.neutral {
-        background: #f1f5f9;
-        color: #475569;
+        background: #f1f3f9;
+        color: var(--ink-soft);
     }
 
 .kpi-card span {
     display: block;
-    color: #64748b;
+    color: var(--ink-soft);
     font-size: 13px;
     margin-bottom: 5px;
     font-weight: 500;
 }
 
 .kpi-card strong {
-    color: #0f172a;
+    color: var(--ink);
     font-size: 22px;
-    font-weight: 700;
+    font-weight: 600;
+    font-family: var(--font-mono);
     letter-spacing: -0.01em;
 }
 
 .kpi-card.success strong {
-    color: #10b981;
+    color: var(--positive);
 }
 
 .kpi-card.danger strong {
-    color: #f43f5e;
+    color: var(--negative);
 }
+
+/* ---------------------------------------------------------------- */
+/* Cards / panels                                                    */
+/* ---------------------------------------------------------------- */
 
 .analysis-grid {
     margin-top: 20px;
@@ -264,11 +393,12 @@
 .chart-card,
 .table-card,
 .map-card {
-    background: #fff;
-    border: 1px solid #e9ecf2;
-    border-radius: 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
     padding: 22px;
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+    box-shadow: var(--shadow-soft);
+    transition: box-shadow 0.2s ease;
 }
 
 .card-title {
@@ -279,17 +409,56 @@
     margin-bottom: 18px;
 }
 
-    .card-title h2 {
-        margin: 0;
-        color: #0f172a;
-        font-size: 17px;
-        font-weight: 600;
+.card-title-text h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.card-title-text span {
+    display: block;
+    color: var(--ink-faint);
+    font-size: 12.5px;
+    font-weight: 500;
+    margin-top: 3px;
+}
+
+/* Panel bazlı "Excel'e Aktar" butonu */
+.export-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink-soft);
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 13px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: 0.15s ease;
+}
+
+    .export-btn i {
+        font-size: 14px;
+        color: var(--accent);
     }
 
-    .card-title span {
-        color: #94a3b8;
-        font-size: 12.5px;
-        font-weight: 500;
+    .export-btn:hover:not(:disabled) {
+        background: var(--accent-soft);
+        border-color: #cfd5ff;
+        color: var(--accent-strong);
+        transform: translateY(-1px);
+    }
+
+    .export-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
     }
 
 .map-card {
@@ -300,13 +469,13 @@
     width: 100%;
     height: 460px;
     border-radius: 16px;
-    border: 1px solid #e9ecf2;
+    border: 1px solid var(--line);
     overflow: hidden;
 }
 
     .turkiye-map .leaflet-container {
         background: #eef2f9;
-        font-family: "Inter", sans-serif;
+        font-family: var(--font-body);
     }
 
 .map-legend {
@@ -315,7 +484,7 @@
     gap: 18px;
     margin-top: 14px;
     font-size: 12.5px;
-    color: #475569;
+    color: var(--ink-soft);
 }
 
     .map-legend span {
@@ -332,15 +501,15 @@
 }
 
     .legend-dot.positive {
-        background: #10b981;
+        background: var(--positive);
     }
 
     .legend-dot.negative {
-        background: #f43f5e;
+        background: var(--negative);
     }
 
 .legend-note {
-    color: #94a3b8;
+    color: var(--ink-faint);
     margin-left: auto;
 }
 
@@ -352,15 +521,21 @@
 }
 
 .map-list-item {
-    background: #f8fafc;
-    border: 1px solid #eef1f6;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
     border-radius: 14px;
     padding: 12px;
+    transition: 0.15s ease;
 }
+
+    .map-list-item:hover {
+        border-color: #cfd5ff;
+        background: var(--accent-soft);
+    }
 
     .map-list-item strong {
         display: block;
-        color: #0f172a;
+        color: var(--ink);
         font-size: 13px;
         font-weight: 600;
     }
@@ -370,7 +545,12 @@
         font-size: 12.5px;
         margin-top: 4px;
         font-weight: 600;
+        font-family: var(--font-mono);
     }
+
+/* ---------------------------------------------------------------- */
+/* Table                                                              */
+/* ---------------------------------------------------------------- */
 
 .table-card {
     margin-top: 20px;
@@ -379,14 +559,14 @@
 .table-hint {
     margin: -8px 0 14px;
     font-size: 12.5px;
-    color: #94a3b8;
+    color: var(--ink-faint);
 }
 
 .table-scroll {
     overflow: auto;
     max-height: 620px;
     border-radius: 14px;
-    border: 1px solid #eef1f6;
+    border: 1px solid var(--line);
 }
 
 .profit-table {
@@ -399,22 +579,35 @@
         position: sticky;
         top: 0;
         z-index: 2;
-        background: #f8fafc;
+        background: var(--surface-2);
         color: #334155;
         text-align: left;
         padding: 13px 14px;
         font-size: 12.5px;
         font-weight: 600;
-        border-bottom: 1px solid #eef1f6;
+        border-bottom: 1px solid var(--line);
     }
 
     .profit-table td {
         padding: 13px 14px;
-        border-bottom: 1px solid #f3f4f7;
-        color: #0f172a;
+        border-bottom: 1px solid #f3f4f8;
+        color: var(--ink);
         font-size: 13px;
         vertical-align: top;
     }
+
+        .profit-table td:nth-child(2),
+        .profit-table td:nth-child(3),
+        .profit-table td:nth-child(4),
+        .profit-table td:nth-child(5),
+        .profit-table th:nth-child(2),
+        .profit-table th:nth-child(3),
+        .profit-table th:nth-child(4),
+        .profit-table th:nth-child(5) {
+            text-align: right;
+            font-family: var(--font-mono);
+            font-variant-numeric: tabular-nums;
+        }
 
 .tree-table .row-musteri,
 .tree-table .row-tedarikci {
@@ -429,7 +622,7 @@
 }
 
     .tree-table .row-musteri:hover {
-        background: #eef1ff;
+        background: var(--accent-soft);
     }
 
 .tree-table .row-tedarikci td:first-child {
@@ -437,12 +630,12 @@
 }
 
 .tree-table .row-tedarikci:hover {
-    background: #f8fafc;
+    background: var(--surface-2);
 }
 
 .row-icon {
     font-size: 14px;
-    color: #94a3b8;
+    color: var(--ink-faint);
     margin-right: 6px;
     vertical-align: -2px;
 }
@@ -455,8 +648,8 @@
     height: 18px;
     margin-right: 6px;
     border-radius: 6px;
-    background: #eef1ff;
-    color: #4f6bff;
+    background: var(--accent-soft);
+    color: var(--accent);
     font-size: 11px;
     transition: transform 0.15s ease;
 }
@@ -467,14 +660,15 @@
 
     .chevron.level-2 {
         background: #f1f5f9;
-        color: #475569;
+        color: var(--ink-soft);
     }
 
 .row-sub-count {
     margin-left: 10px;
     font-size: 11.5px;
     font-weight: 500;
-    color: #94a3b8;
+    color: var(--ink-faint);
+    font-family: var(--font-body);
 }
 
 .row-sefer-detail td {
@@ -483,7 +677,7 @@
 }
 
 .sefer-detail-wrap {
-    border: 1px solid #eef1f6;
+    border: 1px solid var(--line);
     border-radius: 12px;
     overflow: hidden;
     background: #fff;
@@ -499,9 +693,9 @@
         padding: 9px 14px;
         font-size: 11.5px;
         font-weight: 600;
-        color: #64748b;
-        background: #f8fafc;
-        border-bottom: 1px solid #eef1f6;
+        color: var(--ink-soft);
+        background: var(--surface-2);
+        border-bottom: 1px solid var(--line);
     }
 
     .sefer-table td {
@@ -511,39 +705,54 @@
         border-bottom: 1px solid #f3f4f7;
     }
 
+        .sefer-table td:nth-child(2),
+        .sefer-table td:nth-child(3),
+        .sefer-table td:nth-child(4),
+        .sefer-table th:nth-child(2),
+        .sefer-table th:nth-child(3),
+        .sefer-table th:nth-child(4) {
+            text-align: right;
+            font-family: var(--font-mono);
+            font-variant-numeric: tabular-nums;
+        }
+
     .sefer-table tbody tr:last-child td {
         border-bottom: 0;
     }
 
     .sefer-table tbody tr:hover {
-        background: #f8fafc;
+        background: var(--surface-2);
     }
 
 .profit-table tbody tr:hover {
-    background: #f8fafc;
+    background: var(--surface-2);
 }
 
 .positive-text {
-    color: #10b981 !important;
+    color: var(--positive) !important;
     font-weight: 700;
 }
 
 .negative-text {
-    color: #f43f5e !important;
+    color: var(--negative) !important;
     font-weight: 700;
 }
+
+/* ---------------------------------------------------------------- */
+/* Empty state                                                       */
+/* ---------------------------------------------------------------- */
 
 .empty-state {
     margin-top: 40px;
     padding: 60px 20px;
     border-radius: 20px;
-    background: #fff;
+    background: var(--surface);
     border: 1px dashed #d8dee9;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    color: #64748b;
+    color: var(--ink-soft);
     text-align: center;
 }
 
@@ -554,7 +763,7 @@
     }
 
     .empty-state strong {
-        color: #0f172a;
+        color: var(--ink);
         font-size: 16px;
     }
 
@@ -562,7 +771,10 @@
         font-size: 13.5px;
     }
 
-/* Pasta grafiği */
+/* ---------------------------------------------------------------- */
+/* Pasta grafiği                                                     */
+/* ---------------------------------------------------------------- */
+
 .pie-card {
     margin-top: 0;
 }
@@ -599,8 +811,8 @@
 }
 
     .pie-legend-item:hover {
-        background: #f8fafc;
-        border-color: #eef1f6;
+        background: var(--surface-2);
+        border-color: var(--line);
     }
 
 .legend-swatch {
@@ -614,7 +826,7 @@
     flex: 1;
     font-size: 13px;
     font-weight: 500;
-    color: #0f172a;
+    color: var(--ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -623,8 +835,9 @@
 .legend-value {
     font-size: 12.5px;
     font-weight: 600;
-    color: #475569;
+    color: var(--ink-soft);
     flex-shrink: 0;
+    font-family: var(--font-mono);
 }
 
 .legend-arrow {
@@ -633,12 +846,15 @@
     flex-shrink: 0;
 }
 
-/* Tedarikçi detay modalı */
+/* ---------------------------------------------------------------- */
+/* Tedarikçi detay modalı                                             */
+/* ---------------------------------------------------------------- */
+
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(11, 18, 32, 0.5);
-    backdrop-filter: blur(2px);
+    background: rgba(9, 13, 24, 0.55);
+    backdrop-filter: blur(3px);
     display: flex;
     justify-content: flex-end;
     z-index: 100;
@@ -683,14 +899,14 @@
     justify-content: space-between;
     gap: 12px;
     padding: 24px 24px 18px;
-    border-bottom: 1px solid #eef1f6;
+    border-bottom: 1px solid var(--line);
 }
 
 .modal-eyebrow {
     display: block;
     font-size: 12px;
     font-weight: 600;
-    color: #4f6bff;
+    color: var(--accent);
     margin-bottom: 4px;
     letter-spacing: 0.02em;
 }
@@ -698,13 +914,20 @@
 .modal-header h3 {
     margin: 0;
     font-size: 20px;
-    color: #0f172a;
+    color: var(--ink);
+}
+
+.modal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .modal-close {
     border: 0;
     background: #f1f5f9;
-    color: #475569;
+    color: var(--ink-soft);
     width: 34px;
     height: 34px;
     border-radius: 10px;
@@ -717,7 +940,7 @@
 
     .modal-close:hover {
         background: #e2e8f0;
-        color: #0f172a;
+        color: var(--ink);
     }
 
 .modal-kpis {
@@ -725,12 +948,12 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     padding: 20px 24px;
-    border-bottom: 1px solid #eef1f6;
+    border-bottom: 1px solid var(--line);
 }
 
 .modal-kpi {
-    background: #f8fafc;
-    border: 1px solid #eef1f6;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
     border-radius: 14px;
     padding: 13px 14px;
 }
@@ -738,23 +961,23 @@
     .modal-kpi span {
         display: block;
         font-size: 12px;
-        color: #64748b;
+        color: var(--ink-soft);
         margin-bottom: 4px;
         font-weight: 500;
     }
 
     .modal-kpi strong {
         font-size: 17px;
-        color: #0f172a;
-        font-family: "Space Grotesk", sans-serif;
+        color: var(--ink);
+        font-family: var(--font-mono);
     }
 
     .modal-kpi.success strong {
-        color: #10b981;
+        color: var(--positive);
     }
 
     .modal-kpi.danger strong {
-        color: #f43f5e;
+        color: var(--negative);
     }
 
 .modal-body {
@@ -770,13 +993,13 @@
     margin: 0 0 12px;
     font-size: 13.5px;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--ink);
 }
 
     .modal-section-title span {
         font-size: 12px;
         font-weight: 500;
-        color: #94a3b8;
+        color: var(--ink-faint);
     }
 
 .modal-musteri-list {
@@ -786,7 +1009,7 @@
 }
 
 .modal-musteri-card {
-    border: 1px solid #eef1f6;
+    border: 1px solid var(--line);
     border-radius: 14px;
     overflow: hidden;
 }
@@ -812,7 +1035,7 @@
     flex: 1;
     font-size: 13px;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -820,14 +1043,18 @@
 
 .modal-musteri-meta {
     font-size: 12px;
-    color: #94a3b8;
+    color: var(--ink-faint);
     flex-shrink: 0;
 }
 
 .modal-sefer-list {
-    border-top: 1px solid #eef1f6;
+    border-top: 1px solid var(--line);
     background: #fff;
 }
+
+/* ---------------------------------------------------------------- */
+/* Responsive                                                        */
+/* ---------------------------------------------------------------- */
 
 @media (max-width: 900px) {
     .pie-layout {
@@ -863,6 +1090,24 @@
     .karlilik-header {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .route-line {
+        display: none;
+    }
+
+    .header-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+        .header-actions .upload-main-btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+    .card-title {
+        flex-wrap: wrap;
     }
 
     .kpi-grid,

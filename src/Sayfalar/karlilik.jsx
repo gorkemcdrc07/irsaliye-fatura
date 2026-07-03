@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { yeniRapor, sayfaEkle, ozetSayfasiEkle, indir } from "./excelExport";
 import "./karlilik.css";
 
 // Türkiye il merkezleri (enlem, boylam) — OpenStreetMap üzerinde gösterim için
@@ -104,12 +105,12 @@ const IL_KOORDINATLARI = {
 
 // Pasta grafiği için döngüsel renk paleti
 const PASTA_RENKLERI = [
-    "#4F6BFF",
-    "#10B981",
-    "#F59E0B",
-    "#F43F5E",
+    "#4F5DF7",
+    "#0EA472",
+    "#D97A1F",
+    "#E5484D",
     "#8B5CF6",
-    "#06B6D4",
+    "#0EA5B7",
     "#EC4899",
     "#84CC16",
     "#FB923C",
@@ -164,19 +165,49 @@ function kisalt(value, uzunluk = 20) {
     return text.length > uzunluk ? `${text.slice(0, uzunluk).trim()}…` : text;
 }
 
+function tarihFormatla(value) {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return value.toLocaleDateString("tr-TR");
+    }
+    return value || "";
+}
+
+function dosyaTarihEtiketi() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function guvenliDosyaAdi(value) {
+    return String(value || "Tedarikci").replace(/[^\p{L}\p{N}]+/gu, "_");
+}
+
 // Tedarikçi isimleri uzun olduğunda birbirine girmesin diye kısaltılmış,
 // tam adın yalnızca üzerine gelince (title) göründüğü özel eksen etiketi
 function TedarikciEkseni({ x, y, payload }) {
     return (
         <g transform={`translate(${x},${y})`}>
             <title>{payload.value}</title>
-            <text x={-10} y={0} dy={4} textAnchor="end" fontSize={12} fill="#475569">
+            <text x={-10} y={0} dy={4} textAnchor="end" fontSize={12} fill="#5B6478">
                 {kisalt(payload.value, 18)}
             </text>
         </g>
     );
 }
 
+// Panel başlıklarında kullanılan tekil "Excel'e Aktar" butonu
+function ExportButton({ onClick, disabled, label = "Aktar" }) {
+    return (
+        <button
+            type="button"
+            className="export-btn"
+            onClick={onClick}
+            disabled={disabled}
+            title="Excel'e aktar"
+        >
+            <i className="ti ti-file-export" />
+            {label}
+        </button>
+    );
+}
 
 function Karlilik() {
     const inputRef = useRef(null);
@@ -495,6 +526,241 @@ function Karlilik() {
         [analiz.harita]
     );
 
+    // ---- Excel'e aktarma yardımcıları (ExcelJS ile stilli, markalı rapor) --
+
+    function musteriTedarikciSatirlariUret() {
+        const detayData = [];
+        const seferData = [];
+
+        analiz.musteriler.forEach((m) => {
+            m.tedarikciler.forEach((t) => {
+                detayData.push({
+                    musteri: m.musteri,
+                    tedarikci: t.tedarikci,
+                    gelir: t.gelir,
+                    gider: t.gider,
+                    karlilik: t.karlilik,
+                    seferSayisi: t.seferSayisi,
+                });
+
+                t.seferler.forEach((s) => {
+                    seferData.push({
+                        musteri: m.musteri,
+                        tedarikci: t.tedarikci,
+                        seferNo: s.seferNo,
+                        tarih: tarihFormatla(s.tarih),
+                        guzergah: s.guzergah,
+                        gelir: s.gelir,
+                        gider: s.gider,
+                        karlilik: s.karlilik,
+                    });
+                });
+            });
+        });
+
+        return { detayData, seferData };
+    }
+
+    // Sayfalar arası ortak kolon tanımları — tek yerden yönetilsin
+    const KOLON = {
+        tedarikci: { key: "tedarikci", header: "Tedarikçi", type: "text", width: 30 },
+        musteri: { key: "musteri", header: "Müşteri", type: "text", width: 28 },
+        il: { key: "il", header: "İl", type: "text", width: 22 },
+        seferNo: { key: "seferNo", header: "Sefer No", type: "text", width: 14 },
+        tarih: { key: "tarih", header: "Tarih", type: "text", width: 14 },
+        guzergah: { key: "guzergah", header: "Güzergah", type: "text", width: 28 },
+        gelir: { key: "gelir", header: "Gelir", type: "money", width: 18 },
+        gider: { key: "gider", header: "Gider", type: "money", width: 18 },
+        karlilik: { key: "karlilik", header: "Karlılık", type: "money", width: 18, renkli: true },
+        seferSayisi: { key: "seferSayisi", header: "Sefer Sayısı", type: "number", width: 16 },
+    };
+
+    async function tedarikciSeferAktar() {
+        const wb = yeniRapor();
+        sayfaEkle(wb, {
+            ad: "Sefer Sayısı",
+            baslik: "Tedarikçi Bazlı Sefer Sayısı",
+            altBaslik: `İlk ${analiz.tedarikciGrafik.length} tedarikçi · ${new Date().toLocaleDateString("tr-TR")}`,
+            kolonlar: [KOLON.tedarikci, KOLON.seferSayisi, KOLON.gelir, KOLON.gider, KOLON.karlilik],
+            satirlar: analiz.tedarikciGrafik,
+        });
+        await indir(wb, `Tedarikci_Sefer_Sayisi_${dosyaTarihEtiketi()}.xlsx`);
+    }
+
+    async function tedarikciKarlilikAktar() {
+        const wb = yeniRapor();
+        sayfaEkle(wb, {
+            ad: "Karlılık",
+            baslik: "Tedarikçi Bazlı Karlılık",
+            altBaslik: `İlk ${analiz.karlilikGrafik.length} tedarikçi · ${new Date().toLocaleDateString("tr-TR")}`,
+            kolonlar: [KOLON.tedarikci, KOLON.karlilik, KOLON.gelir, KOLON.gider, KOLON.seferSayisi],
+            satirlar: analiz.karlilikGrafik,
+        });
+        await indir(wb, `Tedarikci_Karlilik_${dosyaTarihEtiketi()}.xlsx`);
+    }
+
+    async function pastaAktar() {
+        const wb = yeniRapor();
+        sayfaEkle(wb, {
+            ad: "Gelir Payı",
+            baslik: "Tedarikçi Bazlı Gelir Payı",
+            altBaslik: `Tüm ${analiz.tedarikciPasta.length} tedarikçi · ${new Date().toLocaleDateString("tr-TR")}`,
+            kolonlar: [KOLON.tedarikci, KOLON.gelir, KOLON.gider, KOLON.karlilik, KOLON.seferSayisi],
+            satirlar: analiz.tedarikciPasta,
+        });
+        await indir(wb, `Tedarikci_Gelir_Payi_${dosyaTarihEtiketi()}.xlsx`);
+    }
+
+    async function haritaAktar() {
+        const wb = yeniRapor();
+        sayfaEkle(wb, {
+            ad: "İl Bazlı",
+            baslik: "Türkiye Haritası — İl Bazlı Karlılık",
+            altBaslik: `${analiz.harita.length} il · ${new Date().toLocaleDateString("tr-TR")}`,
+            kolonlar: [KOLON.il, KOLON.karlilik, KOLON.seferSayisi],
+            satirlar: analiz.harita,
+        });
+        await indir(wb, `Il_Bazli_Karlilik_${dosyaTarihEtiketi()}.xlsx`);
+    }
+
+    async function tabloDetayAktar() {
+        if (!analiz.musteriler.length) return;
+        const { detayData, seferData } = musteriTedarikciSatirlariUret();
+
+        const wb = yeniRapor();
+        sayfaEkle(wb, {
+            ad: "Müşteri-Tedarikçi",
+            baslik: "Müşteri ve Tedarikçi Karlılık Detayı",
+            altBaslik: `${analiz.musteriler.length} müşteri · ${new Date().toLocaleDateString("tr-TR")}`,
+            kolonlar: [KOLON.musteri, KOLON.tedarikci, KOLON.gelir, KOLON.gider, KOLON.karlilik, KOLON.seferSayisi],
+            satirlar: detayData,
+        });
+        sayfaEkle(wb, {
+            ad: "Sefer Detayı",
+            baslik: "Sefer Bazlı Detay",
+            altBaslik: `${seferData.length} sefer kaydı`,
+            kolonlar: [
+                KOLON.musteri,
+                KOLON.tedarikci,
+                KOLON.seferNo,
+                KOLON.tarih,
+                KOLON.guzergah,
+                KOLON.gelir,
+                KOLON.gider,
+                KOLON.karlilik,
+            ],
+            satirlar: seferData,
+        });
+        await indir(wb, `Musteri_Tedarikci_Detay_${dosyaTarihEtiketi()}.xlsx`);
+    }
+
+    async function tumunuAktar() {
+        if (!analiz.musteriler.length) return;
+        const { detayData, seferData } = musteriTedarikciSatirlariUret();
+
+        const wb = yeniRapor();
+
+        ozetSayfasiEkle(wb, {
+            toplamGelir: analiz.toplamGelir,
+            toplamGider: analiz.toplamGider,
+            toplamKarlilik: analiz.toplamKarlilik,
+            toplamSefer: analiz.toplamSefer,
+            dosyaAdi,
+        });
+
+        sayfaEkle(wb, {
+            ad: "Müşteri-Tedarikçi",
+            baslik: "Müşteri ve Tedarikçi Karlılık Detayı",
+            altBaslik: `${analiz.musteriler.length} müşteri`,
+            kolonlar: [KOLON.musteri, KOLON.tedarikci, KOLON.gelir, KOLON.gider, KOLON.karlilik, KOLON.seferSayisi],
+            satirlar: detayData,
+        });
+
+        sayfaEkle(wb, {
+            ad: "Sefer Detayı",
+            baslik: "Sefer Bazlı Detay",
+            altBaslik: `${seferData.length} sefer kaydı`,
+            kolonlar: [
+                KOLON.musteri,
+                KOLON.tedarikci,
+                KOLON.seferNo,
+                KOLON.tarih,
+                KOLON.guzergah,
+                KOLON.gelir,
+                KOLON.gider,
+                KOLON.karlilik,
+            ],
+            satirlar: seferData,
+        });
+
+        sayfaEkle(wb, {
+            ad: "Tedarikçi Bazlı",
+            baslik: "Tedarikçi Bazlı Özet",
+            altBaslik: `${analiz.tedarikciPasta.length} tedarikçi`,
+            kolonlar: [KOLON.tedarikci, KOLON.gelir, KOLON.gider, KOLON.karlilik, KOLON.seferSayisi],
+            satirlar: analiz.tedarikciPasta,
+        });
+
+        sayfaEkle(wb, {
+            ad: "İl Bazlı",
+            baslik: "İl Bazlı Karlılık",
+            altBaslik: `${analiz.harita.length} il`,
+            kolonlar: [KOLON.il, KOLON.karlilik, KOLON.seferSayisi],
+            satirlar: analiz.harita,
+        });
+
+        await indir(wb, `Karlilik_Analizi_Tam_Rapor_${dosyaTarihEtiketi()}.xlsx`);
+    }
+
+    async function tedarikciDetayAktar() {
+        if (!tedarikciDetay) return;
+
+        const musteriData = tedarikciDetay.musteriler.map((m) => ({
+            musteri: m.musteri,
+            gelir: m.gelir,
+            gider: m.gider,
+            karlilik: m.karlilik,
+            seferSayisi: m.seferSayisi,
+        }));
+
+        const seferData = [];
+        tedarikciDetay.musteriler.forEach((m) => {
+            m.seferler.forEach((s) => {
+                seferData.push({
+                    musteri: m.musteri,
+                    seferNo: s.seferNo,
+                    tarih: tarihFormatla(s.tarih),
+                    guzergah: s.guzergah,
+                    gelir: s.gelir,
+                    gider: s.gider,
+                    karlilik: s.karlilik,
+                });
+            });
+        });
+
+        const wb = yeniRapor();
+
+        sayfaEkle(wb, {
+            ad: "Müşteri Kırılımı",
+            baslik: `${tedarikciDetay.tedarikci} — Müşteri Kırılımı`,
+            altBaslik: `${tedarikciDetay.musteriler.length} müşteri · ${new Date().toLocaleDateString("tr-TR")}`,
+            kolonlar: [KOLON.musteri, KOLON.gelir, KOLON.gider, KOLON.karlilik, KOLON.seferSayisi],
+            satirlar: musteriData,
+        });
+
+        sayfaEkle(wb, {
+            ad: "Sefer Detayı",
+            baslik: `${tedarikciDetay.tedarikci} — Sefer Detayı`,
+            altBaslik: `${seferData.length} sefer kaydı`,
+            kolonlar: [KOLON.musteri, KOLON.seferNo, KOLON.tarih, KOLON.guzergah, KOLON.gelir, KOLON.gider, KOLON.karlilik],
+            satirlar: seferData,
+        });
+
+        await indir(wb, `${guvenliDosyaAdi(tedarikciDetay.tedarikci)}_Detay_${dosyaTarihEtiketi()}.xlsx`);
+    }
+
+    // -------------------------------------------------------------------------
+
     return (
         <main className="karlilik-page">
             <section className="karlilik-header">
@@ -507,14 +773,25 @@ function Karlilik() {
                     <p>
                         Excel yükleyerek müşteri, tedarikçi, gelir, gider, karlılık
                         ve sefer sayısı bazlı analiz oluşturun — sonuçları gerçek
-                        Türkiye haritası üzerinde görün.
+                        Türkiye haritası üzerinde görün, tek tıkla Excel'e aktarın.
                     </p>
                 </div>
 
-                <button className="upload-main-btn" onClick={() => inputRef.current?.click()}>
-                    <i className="ti ti-upload" />
-                    Excel Yükle
-                </button>
+                <div className="header-actions">
+                    <button className="upload-main-btn" onClick={() => inputRef.current?.click()}>
+                        <i className="ti ti-upload" />
+                        Excel Yükle
+                    </button>
+
+                    <button
+                        className="upload-main-btn ghost"
+                        onClick={tumunuAktar}
+                        disabled={!analiz.musteriler.length}
+                    >
+                        <i className="ti ti-file-spreadsheet" />
+                        Tümünü Excel'e Aktar
+                    </button>
+                </div>
 
                 <input
                     ref={inputRef}
@@ -523,6 +800,8 @@ function Karlilik() {
                     hidden
                     onChange={(e) => excelOku(e.target.files?.[0])}
                 />
+
+                <span className="route-line" aria-hidden="true" />
             </section>
 
             <section
@@ -608,8 +887,11 @@ function Karlilik() {
                     <section className="analysis-grid">
                         <div className="chart-card">
                             <div className="card-title">
-                                <h2>Tedarikçi Bazlı Sefer Sayısı</h2>
-                                <span>İlk {analiz.tedarikciGrafik.length} tedarikçi</span>
+                                <div className="card-title-text">
+                                    <h2>Tedarikçi Bazlı Sefer Sayısı</h2>
+                                    <span>İlk {analiz.tedarikciGrafik.length} tedarikçi</span>
+                                </div>
+                                <ExportButton onClick={tedarikciSeferAktar} />
                             </div>
 
                             <ResponsiveContainer
@@ -633,7 +915,7 @@ function Karlilik() {
                                         interval={0}
                                     />
                                     <RTooltip
-                                        cursor={{ fill: "rgba(79,107,255,0.06)" }}
+                                        cursor={{ fill: "rgba(79,93,247,0.06)" }}
                                         contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
                                         labelFormatter={(label) => label}
                                     />
@@ -641,7 +923,7 @@ function Karlilik() {
                                         dataKey="seferSayisi"
                                         name="Sefer Sayısı"
                                         radius={[0, 8, 8, 0]}
-                                        fill="#4F6BFF"
+                                        fill="#4F5DF7"
                                         maxBarSize={22}
                                     >
                                         <LabelList
@@ -656,8 +938,11 @@ function Karlilik() {
 
                         <div className="chart-card">
                             <div className="card-title">
-                                <h2>Tedarikçi Bazlı Karlılık</h2>
-                                <span>İlk {analiz.karlilikGrafik.length} tedarikçi</span>
+                                <div className="card-title-text">
+                                    <h2>Tedarikçi Bazlı Karlılık</h2>
+                                    <span>İlk {analiz.karlilikGrafik.length} tedarikçi</span>
+                                </div>
+                                <ExportButton onClick={tedarikciKarlilikAktar} />
                             </div>
 
                             <ResponsiveContainer
@@ -687,7 +972,7 @@ function Karlilik() {
                                     />
                                     <RTooltip
                                         formatter={(value) => para(value)}
-                                        cursor={{ fill: "rgba(16,185,129,0.06)" }}
+                                        cursor={{ fill: "rgba(14,164,114,0.06)" }}
                                         contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
                                         labelFormatter={(label) => label}
                                     />
@@ -695,7 +980,7 @@ function Karlilik() {
                                         dataKey="karlilik"
                                         name="Karlılık"
                                         radius={[0, 8, 8, 0]}
-                                        fill="#10B981"
+                                        fill="#0EA472"
                                         maxBarSize={22}
                                     >
                                         <LabelList
@@ -712,10 +997,13 @@ function Karlilik() {
 
                     <section className="chart-card pie-card">
                         <div className="card-title">
-                            <h2>Tedarikçi Bazlı Gelir Payı</h2>
-                            <span>
-                                Tüm {analiz.tedarikciPasta.length} tedarikçi · detay için tıklayın
-                            </span>
+                            <div className="card-title-text">
+                                <h2>Tedarikçi Bazlı Gelir Payı</h2>
+                                <span>
+                                    Tüm {analiz.tedarikciPasta.length} tedarikçi · detay için tıklayın
+                                </span>
+                            </div>
+                            <ExportButton onClick={pastaAktar} />
                         </div>
 
                         <div className="pie-layout">
@@ -772,8 +1060,11 @@ function Karlilik() {
 
                     <section className="map-card">
                         <div className="card-title">
-                            <h2>Türkiye Haritası — Karlılık Dağılımı</h2>
-                            <span>Teslim ili / yükleme ili bazlı karlılık · OpenStreetMap</span>
+                            <div className="card-title-text">
+                                <h2>Türkiye Haritası — Karlılık Dağılımı</h2>
+                                <span>Teslim ili / yükleme ili bazlı karlılık · OpenStreetMap</span>
+                            </div>
+                            <ExportButton onClick={haritaAktar} />
                         </div>
 
                         <div className="turkiye-map">
@@ -791,7 +1082,7 @@ function Karlilik() {
                                 {analiz.harita.map((item) => {
                                     const oran = Math.abs(item.karlilik) / enYuksekMutlakKarlilik;
                                     const radius = 6 + oran * 22;
-                                    const renk = item.karlilik >= 0 ? "#10B981" : "#F43F5E";
+                                    const renk = item.karlilik >= 0 ? "#0EA472" : "#E5484D";
 
                                     return (
                                         <CircleMarker
@@ -836,8 +1127,11 @@ function Karlilik() {
 
                     <section className="table-card">
                         <div className="card-title">
-                            <h2>Müşteri ve Tedarikçi Karlılık Detayı</h2>
-                            <span>{analiz.musteriler.length} benzersiz müşteri</span>
+                            <div className="card-title-text">
+                                <h2>Müşteri ve Tedarikçi Karlılık Detayı</h2>
+                                <span>{analiz.musteriler.length} benzersiz müşteri</span>
+                            </div>
+                            <ExportButton onClick={tabloDetayAktar} label="Detayı Aktar" />
                         </div>
 
                         <p className="table-hint">
@@ -982,9 +1276,12 @@ function Karlilik() {
                                 <span className="modal-eyebrow">Tedarikçi Detayı</span>
                                 <h3>{tedarikciDetay.tedarikci}</h3>
                             </div>
-                            <button className="modal-close" onClick={modalKapat}>
-                                <i className="ti ti-x" />
-                            </button>
+                            <div className="modal-header-actions">
+                                <ExportButton onClick={tedarikciDetayAktar} />
+                                <button className="modal-close" onClick={modalKapat}>
+                                    <i className="ti ti-x" />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="modal-kpis">
