@@ -451,13 +451,13 @@ function Karlilik() {
             t.musteriler.sort((a, b) => b.karlilik - a.karlilik);
         });
 
+        // Grafiklerde artık Top 10/Top 15 kırpması yok.
+        // Tüm tedarikçiler gösterilir; uzun listeler CSS tarafında scroll ile gezilir.
         const tedarikciGrafik = Object.values(tedarikciGrup)
-            .sort((a, b) => b.seferSayisi - a.seferSayisi)
-            .slice(0, 10);
+            .sort((a, b) => b.seferSayisi - a.seferSayisi);
 
         const karlilikGrafik = Object.values(tedarikciGrup)
-            .sort((a, b) => b.karlilik - a.karlilik)
-            .slice(0, 10);
+            .sort((a, b) => b.karlilik - a.karlilik);
 
         const harita = Object.values(ilGrup)
             .map((item) => ({
@@ -580,7 +580,7 @@ function Karlilik() {
         sayfaEkle(wb, {
             ad: "Sefer Sayısı",
             baslik: "Tedarikçi Bazlı Sefer Sayısı",
-            altBaslik: `İlk ${analiz.tedarikciGrafik.length} tedarikçi · ${new Date().toLocaleDateString("tr-TR")}`,
+            altBaslik: `Tüm ${analiz.tedarikciGrafik.length} tedarikçi · ${new Date().toLocaleDateString("tr-TR")}`,
             kolonlar: [KOLON.tedarikci, KOLON.seferSayisi, KOLON.gelir, KOLON.gider, KOLON.karlilik],
             satirlar: analiz.tedarikciGrafik,
         });
@@ -592,7 +592,7 @@ function Karlilik() {
         sayfaEkle(wb, {
             ad: "Karlılık",
             baslik: "Tedarikçi Bazlı Karlılık",
-            altBaslik: `İlk ${analiz.karlilikGrafik.length} tedarikçi · ${new Date().toLocaleDateString("tr-TR")}`,
+            altBaslik: `Tüm ${analiz.karlilikGrafik.length} tedarikçi · ${new Date().toLocaleDateString("tr-TR")}`,
             kolonlar: [KOLON.tedarikci, KOLON.karlilik, KOLON.gelir, KOLON.gider, KOLON.seferSayisi],
             satirlar: analiz.karlilikGrafik,
         });
@@ -889,109 +889,121 @@ function Karlilik() {
                             <div className="card-title">
                                 <div className="card-title-text">
                                     <h2>Tedarikçi Bazlı Sefer Sayısı</h2>
-                                    <span>İlk {analiz.tedarikciGrafik.length} tedarikçi</span>
+                                    <span>Tüm {analiz.tedarikciGrafik.length} tedarikçi · scroll ile görüntüle</span>
                                 </div>
                                 <ExportButton onClick={tedarikciSeferAktar} />
                             </div>
 
-                            <ResponsiveContainer
-                                width="100%"
-                                height={Math.max(280, analiz.tedarikciGrafik.length * 44 + 40)}
-                            >
-                                <BarChart
-                                    data={analiz.tedarikciGrafik}
-                                    layout="vertical"
-                                    margin={{ top: 4, right: 36, bottom: 4, left: 4 }}
-                                    barCategoryGap="32%"
+                            <div className="chart-scroll chart-scroll--bar">
+                                <div
+                                    className="chart-scroll-inner"
+                                    style={{
+                                        height: Math.max(420, analiz.karlilikGrafik.length * 48 + 70),
+                                    }}
                                 >
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" horizontal={false} />
-                                    <XAxis type="number" stroke="#94a3b8" fontSize={12} allowDecimals={false} />
-                                    <YAxis
-                                        type="category"
-                                        dataKey="tedarikci"
-                                        width={170}
-                                        tick={<TedarikciEkseni />}
-                                        stroke="#e2e8f0"
-                                        interval={0}
-                                    />
-                                    <RTooltip
-                                        cursor={{ fill: "rgba(79,93,247,0.06)" }}
-                                        contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
-                                        labelFormatter={(label) => label}
-                                    />
-                                    <Bar
-                                        dataKey="seferSayisi"
-                                        name="Sefer Sayısı"
-                                        radius={[0, 8, 8, 0]}
-                                        fill="#4F5DF7"
-                                        maxBarSize={22}
-                                    >
-                                        <LabelList
-                                            dataKey="seferSayisi"
-                                            position="right"
-                                            style={{ fontSize: 11, fill: "#475569", fontWeight: 600 }}
-                                        />
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={analiz.tedarikciGrafik}
+                                            layout="vertical"
+                                            margin={{ top: 4, right: 36, bottom: 4, left: 4 }}
+                                            barCategoryGap="32%"
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" horizontal={false} />
+                                            <XAxis type="number" stroke="#94a3b8" fontSize={12} allowDecimals={false} />
+                                            <YAxis
+                                                type="category"
+                                                dataKey="tedarikci"
+                                                width={170}
+                                                tick={<TedarikciEkseni />}
+                                                stroke="#e2e8f0"
+                                                interval={0}
+                                            />
+                                            <RTooltip
+                                                cursor={{ fill: "rgba(79,93,247,0.06)" }}
+                                                contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
+                                                labelFormatter={(label) => label}
+                                            />
+                                            <Bar
+                                                dataKey="seferSayisi"
+                                                name="Sefer Sayısı"
+                                                radius={[0, 8, 8, 0]}
+                                                fill="#4F5DF7"
+                                                maxBarSize={22}
+                                            >
+                                                <LabelList
+                                                    dataKey="seferSayisi"
+                                                    position="right"
+                                                    style={{ fontSize: 11, fill: "#475569", fontWeight: 600 }}
+                                                />
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="chart-card">
                             <div className="card-title">
                                 <div className="card-title-text">
                                     <h2>Tedarikçi Bazlı Karlılık</h2>
-                                    <span>İlk {analiz.karlilikGrafik.length} tedarikçi</span>
+                                    <span>Tüm {analiz.karlilikGrafik.length} tedarikçi · scroll ile görüntüle</span>
                                 </div>
                                 <ExportButton onClick={tedarikciKarlilikAktar} />
                             </div>
 
-                            <ResponsiveContainer
-                                width="100%"
-                                height={Math.max(280, analiz.karlilikGrafik.length * 44 + 40)}
-                            >
-                                <BarChart
-                                    data={analiz.karlilikGrafik}
-                                    layout="vertical"
-                                    margin={{ top: 4, right: 56, bottom: 4, left: 4 }}
-                                    barCategoryGap="32%"
+                            <div className="chart-scroll chart-scroll--bar">
+                                <div
+                                    className="chart-scroll-inner"
+                                    style={{
+                                        height: Math.max(420, analiz.karlilikGrafik.length * 48 + 70),
+                                    }}
                                 >
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" horizontal={false} />
-                                    <XAxis
-                                        type="number"
-                                        tickFormatter={(v) => kisaPara(v)}
-                                        stroke="#94a3b8"
-                                        fontSize={12}
-                                    />
-                                    <YAxis
-                                        type="category"
-                                        dataKey="tedarikci"
-                                        width={170}
-                                        tick={<TedarikciEkseni />}
-                                        stroke="#e2e8f0"
-                                        interval={0}
-                                    />
-                                    <RTooltip
-                                        formatter={(value) => para(value)}
-                                        cursor={{ fill: "rgba(14,164,114,0.06)" }}
-                                        contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
-                                        labelFormatter={(label) => label}
-                                    />
-                                    <Bar
-                                        dataKey="karlilik"
-                                        name="Karlılık"
-                                        radius={[0, 8, 8, 0]}
-                                        fill="#0EA472"
-                                        maxBarSize={22}
-                                    >
-                                        <LabelList
-                                            dataKey="karlilik"
-                                            position="right"
-                                            formatter={(v) => kisaPara(v)}
-                                            style={{ fontSize: 11, fill: "#475569", fontWeight: 600 }}
-                                        />
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={analiz.karlilikGrafik}
+                                            layout="vertical"
+                                            margin={{ top: 4, right: 56, bottom: 4, left: 4 }}
+                                            barCategoryGap="32%"
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#eef1f6" horizontal={false} />
+                                            <XAxis
+                                                type="number"
+                                                tickFormatter={(v) => kisaPara(v)}
+                                                stroke="#94a3b8"
+                                                fontSize={12}
+                                            />
+                                            <YAxis
+                                                type="category"
+                                                dataKey="tedarikci"
+                                                width={170}
+                                                tick={<TedarikciEkseni />}
+                                                stroke="#e2e8f0"
+                                                interval={0}
+                                            />
+                                            <RTooltip
+                                                formatter={(value) => para(value)}
+                                                cursor={{ fill: "rgba(14,164,114,0.06)" }}
+                                                contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb" }}
+                                                labelFormatter={(label) => label}
+                                            />
+                                            <Bar
+                                                dataKey="karlilik"
+                                                name="Karlılık"
+                                                radius={[0, 8, 8, 0]}
+                                                fill="#0EA472"
+                                                maxBarSize={22}
+                                            >
+                                                <LabelList
+                                                    dataKey="karlilik"
+                                                    position="right"
+                                                    formatter={(v) => kisaPara(v)}
+                                                    style={{ fontSize: 11, fill: "#475569", fontWeight: 600 }}
+                                                />
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
                         </div>
                     </section>
 

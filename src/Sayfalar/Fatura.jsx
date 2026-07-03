@@ -502,8 +502,6 @@ function MailModal({ veriler, onClose }) {
 
     const [error, setError] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
-    const [mailSending, setMailSending] = useState(false);
-
     const [activePanel, setActivePanel] = useState("ayarlar"); // ayarlar | onizleme
 
 
@@ -974,7 +972,7 @@ function MailModal({ veriler, onClose }) {
         setMsg("success", "✓ Mail grubu silindi.");
     }
 
-    async function handleSend() {
+    async function handleMailAc() {
         setError("");
         setSuccessMsg("");
 
@@ -998,60 +996,44 @@ function MailModal({ veriler, onClose }) {
             return;
         }
 
+        const html = ozetHtmlOlustur();
+
+        const plainText =
+            `Merhaba,\n\n` +
+            `${selectedProjects.length} projeye ait fatura/gider özeti hazırlanmıştır.\n\n` +
+            `Toplam Kayıt: ${seciliVeriler.length}\n` +
+            `Toplam Tutar: ${tutarFormatla(toplamTutar)} TL\n` +
+            `Bağlı: ${bagli.length}\n` +
+            `Bekleyen: ${bekleyen.length}\n\n` +
+            `Detaylı sefer kayıtları Excel raporunda yer almaktadır.\n\n` +
+            `İyi çalışmalar.`;
+
         try {
-            setMailSending(true);
-
-            const html = ozetHtmlOlustur();
-            const excelBuffer = await excelBufferOlustur(veriler, selectedProjects);
-            const attachmentBase64 = arrayBufferToBase64(excelBuffer);
-            const bugun = new Date().toLocaleDateString("tr-TR").replaceAll(".", "_");
-
-            const response = await fetch(
-                `${import.meta.env.VITE_API_URL}/api/send-invoice-report`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        to: mailTo,
-                        cc,
-                        subject: subject || "Fatura Raporu",
-                        html,
-                        attachmentBase64,
-                        attachmentFileName: `fatura_raporu_${bugun}.xlsx`,
+            if (navigator.clipboard && window.ClipboardItem) {
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        "text/html": new Blob([html], { type: "text/html" }),
+                        "text/plain": new Blob([plainText], { type: "text/plain" }),
                     }),
-                }
-            );
-
-            const text = await response.text();
-
-            let data = {};
-
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch {
-                data = {
-                    error: text || "Sunucudan geçersiz cevap döndü.",
-                };
+                ]);
             }
-
-            if (!response.ok) {
-                throw new Error(data.error || "Mail gönderilemedi.");
-            }
-            setMsg("success", "✓ Mail başarıyla gönderildi.");
-        } catch (err) {
-            setMsg(
-                "error",
-                err instanceof Error
-                    ? err.message
-                    : "Mail gönderilirken bilinmeyen bir hata oluştu."
-            );
-        } finally {
-            setMailSending(false);
+        } catch {
+            console.warn("HTML mail gövdesi panoya kopyalanamadı.");
         }
-    }
 
+        const mailto =
+            `mailto:${encodeURIComponent(mailTo.join(";"))}` +
+            `?cc=${encodeURIComponent(cc.join(";"))}` +
+            `&subject=${encodeURIComponent(subject || "Fatura Raporu")}` +
+            `&body=${encodeURIComponent(plainText)}`;
+
+        window.location.href = mailto;
+
+        setMsg(
+            "success",
+            "✓ Mail uygulaması açıldı. Tasarımlı mail gövdesi panoya kopyalandı; mail alanına yapıştırabilirsiniz."
+        );
+    }
     return (
         <div className="modal-backdrop">
             <div className="modal-box mail-modal-v2" role="dialog" aria-modal="true">
@@ -1061,8 +1043,8 @@ function MailModal({ veriler, onClose }) {
                     <div className="mm-header-left">
                         <div className="mm-header-icon">✉</div>
                         <div>
-                            <h2>Mail Gönder</h2>
-                            <p className="mm-header-sub">Özet mail + Excel detay raporu oluştur</p>
+                            <h2>Mail Aç</h2>
+                            <p className="mm-header-sub">Mail formatını hazırla, Outlook/mail ekranını aç</p>
                         </div>
                     </div>
                     <button className="modal-close" onClick={onClose} aria-label="Kapat">✕</button>
@@ -1368,10 +1350,10 @@ function MailModal({ veriler, onClose }) {
                         </button>
                         <button
                             className="btn-send"
-                            onClick={handleSend}
-                            disabled={mailSending || !toEmails?.length || !selectedProjects.length}
+                            onClick={handleMailAc}
+                            disabled={!toEmails?.length || !selectedProjects.length}
                         >
-                            {mailSending ? "⏳ Mail Gönderiliyor..." : "✉ Mail Gönder"}
+                            ✉ Mail Aç
                         </button>
                     </div>
                 </div>
@@ -1654,7 +1636,7 @@ export default function Fatura() {
                         onClick={() => setMailAcik(true)}
                         disabled={!filtered.length}
                     >
-                        <span aria-hidden="true">✉</span> Mail Gönder
+                        <span aria-hidden="true">✉</span> Mail Aç
                     </button>
                 </div>
             </header>
