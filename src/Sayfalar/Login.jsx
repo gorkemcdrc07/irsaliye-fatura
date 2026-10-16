@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import "./Login.css";
@@ -231,79 +231,33 @@ function Login() {
 
     return (
         <main className={`login-page ${phase === "out" ? "page-out" : "page-in"}`}>
-            <section className="brand-panel">
-                <div className="brand-bg" />
-
-                <div className="brand-content">
-                    <div>
-                        <h2>Odak Lojistik</h2>
-                        <p>Evrak takip ve operasyon yönetim paneli</p>
-                    </div>
-                </div>
-
-                <div className="brand-footer">
-                    <span className="status-dot" />
-                    Sistem aktif
-                    <span>v2.4.1 · 2026</span>
-                </div>
+            <section className="brand-panel" aria-label="ODAK Lojistik dijital operasyon merkezi">
+                <div className="brand-bg" aria-hidden="true" />
             </section>
-
             <section className="login-main">
                 <div className="login-card">
-                    <div className="section-label">Kimlik Doğrulama</div>
-
-                    <h1 className="login-title">Sisteme Giriş</h1>
-
-                    <p className="login-desc">
-                        Yetkili kullanıcı hesabınızla giriş yapınız.
-                    </p>
-
+                    <div className="login-logo"><img src="/odak-login-logo.webp" alt="ODAK Lojistik" /></div>
+                    <div className="section-label"><span className="label-line" /> KURUMSAL ERİŞİM</div>
+                    <h1 className="login-title">Tekrar hoş geldiniz.</h1>
+                    <p className="login-desc">Operasyon paneline erişmek için hesabınızla giriş yapın.</p>
                     <form onSubmit={girisYap} className="login-form" noValidate>
-                        {hata && <div className="error-box">{hata}</div>}
-
+                        {hata && <div className="error-box" role="alert">{hata}</div>}
                         <div className="form-field">
-                            <label>Kullanıcı Adı</label>
-                            <input
-                                type="text"
-                                value={kullaniciAdi}
-                                disabled={loading}
-                                autoComplete="username"
-                                onChange={(e) => {
-                                    setKullaniciAdi(e.target.value);
-                                    setHata("");
-                                }}
-                            />
+                            <label htmlFor="odak-username">Kullanıcı adı</label>
+                            <input id="odak-username" type="text" placeholder="Kullanıcı adınızı girin" value={kullaniciAdi} disabled={loading} autoComplete="username" onChange={(e) => { setKullaniciAdi(e.target.value); setHata(""); }} />
                         </div>
-
                         <div className="form-field">
-                            <label>Şifre</label>
-                            <input
-                                type="password"
-                                value={sifre}
-                                disabled={loading}
-                                autoComplete="current-password"
-                                onChange={(e) => {
-                                    setSifre(e.target.value);
-                                    setHata("");
-                                }}
-                            />
+                            <label htmlFor="odak-password">Şifre</label>
+                            <input id="odak-password" type="password" placeholder="Şifrenizi girin" value={sifre} disabled={loading} autoComplete="current-password" onChange={(e) => { setSifre(e.target.value); setHata(""); }} />
                         </div>
-
-                        <button className="login-btn" type="submit" disabled={loading}>
-                            {loading ? "Doğrulanıyor..." : "Giriş Yap"}
-                        </button>
+                        <button className="login-btn" type="submit" disabled={loading}>{loading ? "Giriş yapılıyor..." : <>Güvenli giriş <span aria-hidden="true">→</span></>}</button>
                     </form>
-
                     <div className="login-divider" />
-
-                    <div className="login-meta">
-                        <span>SSL şifreli bağlantı</span>
-                        <span>Şifrenizi mi unuttunuz?</span>
-                    </div>
+                    <div className="login-meta"><span><span className="meta-dot" /> Yetkili personel erişimi</span><span>ODAK · TMS</span></div>
                 </div>
+                <p className="login-bottom">ODAK LOJİSTİK <span>·</span> Kurumsal Operasyon Yönetimi</p>
             </section>
         </main>
-    );
-}
+    );}
 
 export default Login;

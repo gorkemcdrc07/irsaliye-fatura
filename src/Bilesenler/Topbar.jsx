@@ -1,4 +1,6 @@
-﻿import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import odakLogo from "./odak-navbar-logo.webp";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./Topbar.css";
 
 function getPermissions() {
@@ -43,6 +45,7 @@ const NAV_ITEMS = [
 ];
 
 function Topbar() {
+    const [menuOpen, setMenuOpen] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -97,70 +100,75 @@ function Topbar() {
         navigate("/login", { replace: true });
     }
 
-    return (
-        <header className="topbar">
-            <div
-                className="brand"
-                onClick={anaSayfayaGit}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && anaSayfayaGit()}
-            >
-                <div className="brand-mark">
-                    <i className="ti ti-truck-delivery" />
-                </div>
+    // Ctrl+K: Teslim Evraklari sayfasindaki mevcut arama alanina odaklan.
+    function focusPageSearch() {
+        const search = document.querySelector('.teslim-page .filter-search input, .teslim-page input[placeholder*="Sefer"]');
+        if (search) {
+            search.focus();
+            search.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+            navigate("/teslim-evraklari");
+        }
+    }
 
-                <div className="brand-text">
-                    <span className="brand-name">
-                        Odak Tedarik Zinciri ve Lojistik A.Ş.
-                    </span>
-                    <span className="brand-sub">
-                        Teslim Evrak Takip
-                    </span>
-                </div>
+    useEffect(() => {
+        const onKeyDown = (event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+                event.preventDefault();
+                focusPageSearch();
+            }
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [location.pathname]);
+
+    const isHome = location.pathname === "/";
+
+    return (
+        <header className="topbar odak-navbar-v9">
+            <div className="odak-navbar-left">
+                <button type="button" className="odak-menu-toggle" aria-label="Menüyü aç/kapat"
+                    aria-expanded={menuOpen} onClick={() => setMenuOpen(v => !v)}>
+                    <i className={`ti ${menuOpen ? "ti-x" : "ti-menu-2"}`} />
+                </button>
+                <button type="button" className="odak-brand-button" onClick={anaSayfayaGit} aria-label="ODAK Lojistik ana sayfa">
+                    <img src={odakLogo} className="odak-navbar-logo" alt="ODAK Lojistik" />
+                </button>
             </div>
 
-            <nav className="nav-links" aria-label="Ana menü">
-                {gorunurNavItems.map((item) => (
-                    <button
-                        key={item.path}
-                        className={`nav-btn ${location.pathname === item.path ? "active" : ""
-                            }`}
-                        onClick={() => navigate(item.path)}
-                    >
-                        <i
-                            className={`ti ${item.icon}`}
-                            aria-hidden="true"
-                        />
-                        {item.label}
+            <nav className={`odak-navbar-nav ${menuOpen ? "is-open" : ""}`} aria-label="Ana menü">
+                {evrakYetkisiVar && (
+                    <button type="button" className={`odak-nav-link ${isHome ? "active" : ""}`}
+                        onClick={() => { setMenuOpen(false); navigate("/"); }}>
+                        <i className="ti ti-home" aria-hidden="true" /><span>Ana Sayfa</span>
+                    </button>
+                )}
+                {gorunurNavItems.map(item => (
+                    <button key={item.path} type="button"
+                        className={`odak-nav-link ${location.pathname === item.path ? "active" : ""}`}
+                        onClick={() => { setMenuOpen(false); navigate(item.path); }}>
+                        <i className={`ti ${item.icon}`} aria-hidden="true" />
+                        <span>{item.label}</span>
                     </button>
                 ))}
             </nav>
 
-            <div className="top-actions">
-                <button
-                    className="icon-btn"
-                    aria-label="Bildirimler"
-                >
-                    <i className="ti ti-bell" />
+            <div className="odak-navbar-actions">
+                <button type="button" className="odak-navbar-search" onClick={focusPageSearch}
+                    title="Teslim Evrakları aramasına git (Ctrl + K)">
+                    <i className="ti ti-search" aria-hidden="true" />
+                    <span>Sefer, plaka, sürücü, irsaliye ara...</span>
+                    <kbd>Ctrl + K</kbd>
                 </button>
-
-                <div className="user-box">
-                    <div className="user-avatar">{avatar}</div>
-
-                    <div className="user-info">
-                        <strong>{kullaniciAdi}</strong>
-                        <span>{rolLabel}</span>
-                    </div>
+                <span className="odak-action-divider" aria-hidden="true" />
+                <div className="odak-user-box" title={kullaniciAdi}>
+                    <span className="odak-user-avatar">{avatar}</span>
+                    <span className="odak-user-info"><strong>{kullaniciAdi}</strong><small>{rolLabel}</small></span>
+                    <i className="ti ti-chevron-down" aria-hidden="true" />
                 </div>
-
-                <button
-                    className="logout-btn"
-                    onClick={cikisYap}
-                    aria-label="Çıkış yap"
-                >
-                    <i className="ti ti-logout" />
-                    <span>Çıkış</span>
+                <span className="odak-action-divider" aria-hidden="true" />
+                <button type="button" className="odak-logout" onClick={cikisYap}>
+                    <i className="ti ti-logout" aria-hidden="true" /><span>Çıkış</span>
                 </button>
             </div>
         </header>

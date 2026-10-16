@@ -1,4 +1,5 @@
-﻿import { useEffect, useState, useMemo } from "react";
+import "@tabler/icons-webfont/dist/tabler-icons.min.css";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabaseClient";
 import "./KullaniciYonetimi.css";
 
@@ -122,6 +123,13 @@ function KullaniciYonetimi() {
     const [form, setForm] = useState(bosForm());
     const [arama, setArama] = useState("");
     const [durumFiltre, setDurumFiltre] = useState("tumu");
+    const [sayfa, setSayfa] = useState(1);
+    const [sayfaBoyutu, setSayfaBoyutu] = useState(10);
+    const [siralama, setSiralama] = useState({ alan: "id", yon: "desc" });
+    const siralaDegistir = (alan) => {
+        setSiralama(prev => ({ alan, yon: prev.alan === alan && prev.yon === "asc" ? "desc" : "asc" }));
+        setSayfa(1);
+    };
 
     async function kullanicilariGetir() {
         setTableLoading(true);
@@ -249,6 +257,17 @@ function KullaniciYonetimi() {
         });
     }, [users, arama, durumFiltre]);
 
+    useEffect(() => { setSayfa(1); }, [arama, durumFiltre, sayfaBoyutu]);
+    const siraliUsers = useMemo(() => [...filtreliUsers].sort((a, b) => {
+        const x = a[siralama.alan] ?? "";
+        const y = b[siralama.alan] ?? "";
+        const sonuc = typeof x === "number" && typeof y === "number"
+            ? x - y : String(x).localeCompare(String(y), "tr-TR", { numeric: true });
+        return siralama.yon === "asc" ? sonuc : -sonuc;
+    }), [filtreliUsers, siralama]);
+    const sayfaSayisi = Math.max(1, Math.ceil(siraliUsers.length / sayfaBoyutu));
+    const gecerliSayfa = Math.min(sayfa, sayfaSayisi);
+    const sayfadakiUsers = siraliUsers.slice((gecerliSayfa - 1) * sayfaBoyutu, gecerliSayfa * sayfaBoyutu);
     const istatistik = useMemo(() => ({
         toplam: users.length,
         aktif: users.filter((u) => u.is_active).length,
@@ -260,10 +279,14 @@ function KullaniciYonetimi() {
         return new Date(tarih).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
     }
 
+    const [yetkiFiltre, setYetkiFiltre] = useState('tumu');
+    const [gorunumSiralamasi, setGorunumSiralamasi] = useState('yeni');
+    const [gorunum, setGorunum] = useState('tablo');
+    const gorunenUsers = [...filtreliUsers].filter(u => yetkiFiltre === 'tumu' || (u.permissions || []).includes(yetkiFiltre)).sort((a,b) => siralama === 'eski' ? new Date(a.created_at || 0) - new Date(b.created_at || 0) : new Date(b.created_at || 0) - new Date(a.created_at || 0));
     const modalBaslik = duzenleHedef ? "Kullanıcıyı Düzenle" : "Yeni Kullanıcı Ekle";
 
     return (
-        <main className="user-page">
+        <main className="user-page odak-users-v1 premium-users">
 
             {/* ── Page Header ── */}
             <header className="page-header">
@@ -297,75 +320,49 @@ function KullaniciYonetimi() {
                     <div className="stat-icon" style={{ background: "#eff6ff", color: "#2563eb" }}><i className="ti ti-users" /></div>
                     <div>
                         <div className="stat-label">Toplam Kullanıcı</div>
-                        <div className="stat-value">{istatistik.toplam}</div>
+                        <div className="stat-value">{istatistik.toplam}</div><small>Tüm kullanıcılar</small>
                     </div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-icon" style={{ background: "#f0fdf4", color: "#16a34a" }}><i className="ti ti-user-check" /></div>
                     <div>
                         <div className="stat-label">Aktif</div>
-                        <div className="stat-value">{istatistik.aktif}</div>
+                        <div className="stat-value">{istatistik.aktif}</div><small>Sistemde aktif</small>
                     </div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-icon" style={{ background: "#fef2f2", color: "#dc2626" }}><i className="ti ti-user-off" /></div>
                     <div>
                         <div className="stat-label">Pasif</div>
-                        <div className="stat-value">{istatistik.pasif}</div>
+                        <div className="stat-value">{istatistik.pasif}</div><small>Pasif hesaplar</small>
                     </div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-icon" style={{ background: "#fefce8", color: "#ca8a04" }}><i className="ti ti-shield-check" /></div>
                     <div>
                         <div className="stat-label">Toplam Yetki</div>
-                        <div className="stat-value">{users.reduce((a, u) => a + (u.permissions?.length || 0), 0)}</div>
+                        <div className="stat-value">{users.reduce((a, u) => a + (u.permissions?.length || 0), 0)}</div><small>Atanan yetki</small>
                     </div>
                 </div>
             </div>
 
             {/* ── Table Card ── */}
             <section className="table-card">
-                <div className="table-toolbar">
-                    <div className="toolbar-left">
-                        <h2>Kullanıcı Listesi</h2>
-                        <span className="record-count">{filtreliUsers.length} / {users.length} kayıt</span>
-                    </div>
-                    <div className="toolbar-right">
-                        <div className="search-wrap">
-                            <i className="ti ti-search" />
-                            <input
-                                type="text"
-                                placeholder="Ad, ID veya customer..."
-                                value={arama}
-                                onChange={(e) => setArama(e.target.value)}
-                            />
-                            {arama && (
-                                <button className="clear-search" onClick={() => setArama("")}>
-                                    <i className="ti ti-x" />
-                                </button>
-                            )}
-                        </div>
-                        <div className="filter-tabs">
-                            {[["tumu", "Tümü"], ["aktif", "Aktif"], ["pasif", "Pasif"]].map(([val, lbl]) => (
-                                <button
-                                    key={val}
-                                    className={`filter-tab ${durumFiltre === val ? "active" : ""}`}
-                                    onClick={() => setDurumFiltre(val)}
-                                >
-                                    {lbl}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                <div className="premium-filters">
+                    <div className="search-wrap"><i className="ti ti-search" /><input value={arama} onChange={e=>setArama(e.target.value)} placeholder="Ad, kullanıcı adı, müşteri no veya yetki ile ara..." />{arama && <button className="clear-search" onClick={()=>setArama('')}><i className="ti ti-x" /></button>}</div>
+                    <label className="premium-select"><i className="ti ti-circle-check" /><select value={durumFiltre} onChange={e=>{setDurumFiltre(e.target.value);setSayfa(1)}}><option value="tumu">Tüm Durumlar</option><option value="aktif">Aktif</option><option value="pasif">Pasif</option></select><i className="ti ti-chevron-down" /></label>
+                    <label className="premium-select"><i className="ti ti-lock" /><select value={yetkiFiltre} onChange={e=>{setYetkiFiltre(e.target.value);setSayfa(1)}}><option value="tumu">Tüm Yetkiler</option>{TUM_YETKILER.map(y=><option key={y.key} value={y.key}>{y.label}</option>)}</select><i className="ti ti-chevron-down" /></label>
+                    <label className="premium-select"><i className="ti ti-calendar" /><select value={gorunumSiralamasi} onChange={e=>setSiralama(e.target.value)}><option value="yeni">Kayıt Tarihi (Yeni → Eski)</option><option value="eski">Kayıt Tarihi (Eski → Yeni)</option></select><i className="ti ti-chevron-down" /></label>
+                    <button className="premium-reset" onClick={()=>{setArama('');setDurumFiltre('tumu');setYetkiFiltre('tumu');setSiralama('yeni');setSayfa(1)}}><i className="ti ti-refresh" /> Filtreleri Temizle</button>
                 </div>
-
-                <div className="table-scroll">
+                <div className="table-toolbar premium-toolbar"><div className="toolbar-left"><span className="list-icon"><i className="ti ti-user" /></span><h2>Kullanıcı Listesi</h2><span className="record-count">{gorunenUsers.length} / {users.length} kayıt</span></div><div className="view-toggle"><button className={gorunum==='tablo'?'selected':''} onClick={()=>setGorunum('tablo')}><i className="ti ti-table" /> Tablo</button><button className={gorunum==='kart'?'selected':''} onClick={()=>setGorunum('kart')}><i className="ti ti-layout-grid" /> Kart</button></div></div>
+                <div className={`table-scroll ${gorunum === "kart" ? "card-mode" : ""}`}>
                     {tableLoading ? (
                         <div className="table-loading">
                             <div className="spinner" />
                             <span>Kullanıcılar yükleniyor...</span>
                         </div>
-                    ) : filtreliUsers.length === 0 ? (
+                    ) : gorunenUsers.length === 0 ? (
                         <div className="empty-state">
                             <i className="ti ti-users-off" />
                             <strong>Kullanıcı bulunamadı</strong>
@@ -386,7 +383,7 @@ function KullaniciYonetimi() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtreliUsers.map((u) => (
+                                {sayfadakiUsers.map((u) => (
                                     <tr key={u.id}>
                                         <td className="cell-id">{u.id}</td>
                                         <td>
@@ -422,7 +419,7 @@ function KullaniciYonetimi() {
                                             </span>
                                         </td>
 
-                                        <td><span className="cell-date">{formatTarih(u.created_at)}</span></td>
+                                        <td><span className="cell-date"><i className="ti ti-calendar-event" aria-hidden="true" /> {formatTarih(u.created_at)}</span></td>
                                         <td>
                                             <span className={`status-badge ${u.is_active ? "active" : "passive"}`}>
                                                 <span className="status-dot" />
@@ -431,26 +428,18 @@ function KullaniciYonetimi() {
                                         </td>
                                         <td className="col-actions">
                                             <div className="action-btns">
-                                                <button
-                                                    className="action-btn edit"
-                                                    title="Düzenle"
-                                                    onClick={() => duzenleAc(u)}
-                                                >
-                                                    <i className="ti ti-edit" />
+                                                <button type="button" className="action-btn edit" aria-label={`${u.user_name} düzenle`}
+                                                    title="Düzenle" onClick={() => duzenleAc(u)}>
+                                                    <i className="ti ti-pencil" />
                                                 </button>
-                                                <button
-                                                    className={`action-btn ${u.is_active ? "deactivate" : "activate"}`}
-                                                    title={u.is_active ? "Pasife Al" : "Aktif Et"}
-                                                    onClick={() => setDurumOnay(u)}
-                                                >
-                                                    <i className={`ti ${u.is_active ? "ti-user-off" : "ti-user-check"}`} />
-                                                </button>
-                                                <button
-                                                    className="action-btn delete"
-                                                    title="Sil"
-                                                    onClick={() => setSilOnay(u)}
-                                                >
+                                                <button type="button" className="action-btn delete" aria-label={`${u.user_name} sil`}
+                                                    title="Sil" onClick={() => setSilOnay(u)}>
                                                     <i className="ti ti-trash" />
+                                                </button>
+                                                <button type="button" className={`action-btn ${u.is_active ? "deactivate" : "activate"}`}
+                                                    aria-label={`${u.user_name} ${u.is_active ? "pasife al" : "aktif et"}`}
+                                                    title={u.is_active ? "Pasife Al" : "Aktif Et"} onClick={() => setDurumOnay(u)}>
+                                                    <i className={`ti ${u.is_active ? "ti-player-pause-filled" : "ti-player-play-filled"}`} />
                                                 </button>
                                             </div>
                                         </td>
@@ -459,6 +448,25 @@ function KullaniciYonetimi() {
                             </tbody>
                         </table>
                     )}
+                </div>
+                <div className="odak-pagination">
+                    <div className="odak-page-size">
+                        <select aria-label="Sayfa başına kayıt" value={sayfaBoyutu}
+                            onChange={e => setSayfaBoyutu(Number(e.target.value))}>
+                            <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+                        </select>
+                        <span>kayıt gösteriliyor · {gorunenUsers.length} sonuç</span>
+                    </div>
+                    <div className="odak-page-buttons">
+                        <button type="button" aria-label="Önceki sayfa" disabled={gecerliSayfa === 1}
+                            onClick={() => setSayfa(p => Math.max(1, p - 1))}><i className="ti ti-chevron-left" /></button>
+                        {Array.from({ length: sayfaSayisi }, (_, i) => i + 1)
+                            .filter(n => sayfaSayisi <= 7 || Math.abs(n - gecerliSayfa) <= 2 || n === 1 || n === sayfaSayisi)
+                            .map(n => <button type="button" key={n} className={gecerliSayfa === n ? "active" : ""}
+                                onClick={() => setSayfa(n)}>{n}</button>)}
+                        <button type="button" aria-label="Sonraki sayfa" disabled={gecerliSayfa === sayfaSayisi}
+                            onClick={() => setSayfa(p => Math.min(sayfaSayisi, p + 1))}><i className="ti ti-chevron-right" /></button>
+                    </div>
                 </div>
             </section>
 

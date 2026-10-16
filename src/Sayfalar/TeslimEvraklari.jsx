@@ -1,7 +1,9 @@
-﻿import { useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
 import JSZip from "jszip";
 import "./TeslimEvraklari.css";
+import odakLogoV7 from "./odak-logo-v7.webp";
+import odakHeroV7 from "./odak-hero-v7.webp";
 
 function TeslimEvraklari() {
 
@@ -43,6 +45,131 @@ function TeslimEvraklari() {
     const [zipLoading, setZipLoading] = useState(false);
     const [buyukGorsel, setBuyukGorsel] = useState(null);
     const [gorselZoom, setGorselZoom] = useState(1);
+    const [seferFiltresi, setSeferFiltresi] = useState("");
+    const [evrakFiltresi, setEvrakFiltresi] = useState("");
+    const [dosyaFiltresi, setDosyaFiltresi] = useState("");
+    const [hizliFiltre, setHizliFiltre] = useState("tum");
+    const [seciliSeferAnahtarlari, setSeciliSeferAnahtarlari] = useState([]);
+    const [excelLoading, setExcelLoading] = useState(false);
+    const [kontrolPanelAcik, setKontrolPanelAcik] = useState(false);
+    const [kontrolFiltre, setKontrolFiltre] = useState("tum");
+
+    // Kullaniciya ozel tablo gorunumleri yalnizca bu tarayicida saklanir.
+    const ODAK_COLUMNS = [{"id": "sefer", "label": "Sefer / Nokta"}, {"id": "arac", "label": "Araç / Treyler"}, {"id": "surucu", "label": "Sürücü"}, {"id": "tarih", "label": "Tarih"}, {"id": "seferDurumu", "label": "Sefer Durumu"}, {"id": "evrakDurumu", "label": "Evrak Durumu"}, {"id": "gorusme", "label": "Görüşme Notu"}, {"id": "dosya", "label": "Görüntü / İrsaliye Sayısı"}];
+    const ODAK_VIEW_KEY = "odak-teslim-evraklari-views-v2";
+    const defaultColumnView = () => ({order: ODAK_COLUMNS.map(c => c.id), hidden: [], widths: {}});
+    const readSavedViews = () => {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(ODAK_VIEW_KEY) || "{}");
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch { return {}; }
+    };
+    const [savedColumnViews, setSavedColumnViews] = useState(readSavedViews);
+    const [activeColumnView, setActiveColumnView] = useState(() => {
+        try { return localStorage.getItem(ODAK_VIEW_KEY + "-active") || ""; } catch { return ""; }
+    });
+    const [columnView, setColumnView] = useState(() => {
+        const saved = readSavedViews();
+        let active = "";
+        try { active = localStorage.getItem(ODAK_VIEW_KEY + "-active") || ""; } catch {}
+        const selected = saved[active];
+        if (selected) return {...defaultColumnView(), ...selected};
+        try {
+            const inline = JSON.parse(localStorage.getItem(ODAK_VIEW_KEY + "-inline") || "null");
+            if (inline && typeof inline === "object") return {...defaultColumnView(), ...inline};
+        } catch {}
+        return defaultColumnView();
+    });
+    const [columnMenuOpen, setColumnMenuOpen] = useState(null);
+    const draggedColumn = useRef(null);
+    const [columnViewName, setColumnViewName] = useState("");
+    const normalizeColumnView = (view) => ({
+        order: [...new Set([...(Array.isArray(view?.order) ? view.order : []), ...ODAK_COLUMNS.map(c => c.id)])].filter(id => ODAK_COLUMNS.some(c => c.id === id)),
+        hidden: (Array.isArray(view?.hidden) ? view.hidden : []).filter(id => ODAK_COLUMNS.some(c => c.id === id)),
+        widths: view?.widths && typeof view.widths === "object" ? view.widths : {}
+    });
+    const updateColumnView = (update) => {
+        setColumnView(prev => normalizeColumnView(typeof update === "function" ? update(prev) : update));
+        setActiveColumnView("");
+        try { localStorage.removeItem(ODAK_VIEW_KEY + "-active"); } catch {}
+    };
+    const saveColumnView = () => {
+        const name = columnViewName.trim().slice(0, 48);
+        if (!name) return;
+        const next = {...savedColumnViews, [name]: normalizeColumnView(columnView)};
+        setSavedColumnViews(next);
+        setActiveColumnView(name);
+        try {
+            localStorage.setItem(ODAK_VIEW_KEY, JSON.stringify(next));
+            localStorage.setItem(ODAK_VIEW_KEY + "-active", name);
+        } catch {}
+        setColumnViewName("");
+    };
+    const loadColumnView = (name) => {
+        setActiveColumnView(name);
+        setColumnView(normalizeColumnView(savedColumnViews[name] || defaultColumnView()));
+        try { localStorage.setItem(ODAK_VIEW_KEY + "-active", name); } catch {}
+    };
+    const deleteColumnView = (name) => {
+        const next = {...savedColumnViews};
+        delete next[name];
+        setSavedColumnViews(next);
+        try { localStorage.setItem(ODAK_VIEW_KEY, JSON.stringify(next)); } catch {}
+        if (activeColumnView === name) {
+            setActiveColumnView("");
+            setColumnView(defaultColumnView());
+            try { localStorage.removeItem(ODAK_VIEW_KEY + "-active"); } catch {}
+        }
+    };
+    const moveColumn = (id, direction) => updateColumnView(prev => {
+        const order = [...prev.order];
+        const from = order.indexOf(id), to = from + direction;
+        if (from < 0 || to < 0 || to >= order.length) return prev;
+        [order[from], order[to]] = [order[to], order[from]];
+        return {...prev, order};
+    });
+    const visibleColumnIds = normalizeColumnView(columnView).order.filter(id => !columnView.hidden.includes(id));
+    useEffect(() => {
+        try { localStorage.setItem(ODAK_VIEW_KEY + "-inline", JSON.stringify(normalizeColumnView(columnView))); } catch {}
+    }, [columnView]);
+    const dropColumn = (targetId) => {
+        const sourceId = draggedColumn.current;
+        draggedColumn.current = null;
+        if (!sourceId || sourceId === targetId) return;
+        updateColumnView(prev => {
+            const order = [...prev.order];
+            const from = order.indexOf(sourceId), to = order.indexOf(targetId);
+            if (from < 0 || to < 0) return prev;
+            order.splice(from, 1);
+            order.splice(to, 0, sourceId);
+            return {...prev, order};
+        });
+    };
+
+
+    const [sirala, setSirala] = useState("varsayilan");
+    const [gecenSure, setGecenSure] = useState(0);
+    const yuklemeBaslangici = useRef(0);
+    useEffect(() => {
+        if (!loading && !fileLoading && !mergeLoading) return undefined;
+        if (!yuklemeBaslangici.current) yuklemeBaslangici.current = Date.now();
+        const interval = setInterval(() => setGecenSure(Math.floor((Date.now() - yuklemeBaslangici.current) / 1000)), 1000);
+        return () => clearInterval(interval);
+    }, [loading, fileLoading, mergeLoading]);
+    useEffect(() => {
+        if (loading || fileLoading || mergeLoading) return;
+        yuklemeBaslangici.current = 0;
+    }, [loading, fileLoading, mergeLoading]);
+    useEffect(() => {
+        if (!buyukGorsel) return undefined;
+        const onKey = (e) => {
+            if (e.key === "Escape") setBuyukGorsel(null);
+            if (e.key === "+" || e.key === "=") setGorselZoom(z => Math.min(4, +(z + .25).toFixed(2)));
+            if (e.key === "-") setGorselZoom(z => Math.max(.5, +(z - .25).toFixed(2)));
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [buyukGorsel]);
     const [logBilgisi, setLogBilgisi] = useState(null);
     const [musteriSiparisNoKurali, setMusteriSiparisNoKurali] = useState(false);
     const [takipPanel, setTakipPanel] = useState(null);
@@ -360,6 +487,8 @@ function TeslimEvraklari() {
             setLoading(false);
             return;
         }
+        yuklemeBaslangici.current = Date.now();
+        setGecenSure(0);
         setLoading(true);
         setFileLoading(false);
         setMergeLoading(false);
@@ -550,8 +679,12 @@ function TeslimEvraklari() {
         }
     }
 
-    async function topluZipIndir() {
-        const indirilecekListe = evraklar.filter(
+    const seferAnahtari = (evrak) => `${evrak.tmsDespatchDocumentId ?? ""}|${evrak.tmsDespatchId ?? ""}|${evrak.documentNo ?? ""}`;
+    const seciliSeferleriBul = () => evraklar.filter(e => seciliSeferAnahtarlari.includes(seferAnahtari(e)));
+    const seciliZipIndir = () => topluZipIndir(seciliSeferleriBul());
+
+    async function topluZipIndir(ozelListe = null) {
+        const indirilecekListe = (Array.isArray(ozelListe) ? ozelListe : evraklar).filter(
             (evrak) => evrak.files?.some((f) => f.hasFile)
         );
 
@@ -671,7 +804,7 @@ function TeslimEvraklari() {
             }
             const blob = await zip.generateAsync({ type: "blob" });
 
-            blobIndir(blob, "Teslim Evrakları.zip");
+            blobIndir(blob, Array.isArray(ozelListe) ? "Secili_Teslim_Evraklari.zip" : "Teslim Evrakları.zip");
         } catch (err) {
             console.error(err);
             setHata("ZIP oluşturulamadı.");
@@ -690,7 +823,14 @@ function TeslimEvraklari() {
         const tip = dosyaTipiBul(file.fileContent);
         const url = dosyaUrlOlustur(file.fileContent);
         if (tip === "pdf") {
-            return <iframe className="file-viewer" src={url} title={`PDF-${evrak.documentNo || "evrak"}-${file.index}`} />;
+            return <div className="odak-pdf-frame">
+                <div className="odak-pdf-frame-top">
+                    <button type="button" className="odak-fullscreen-open" onClick={() => { setBuyukGorsel({ url, title: file.documentReferenceNumber || "PDF", type: "pdf" }); setGorselZoom(1); }}>
+                        Tam Ekran Görüntüle
+                    </button>
+                </div>
+                <iframe className="file-viewer" src={url} title={`PDF-${evrak.documentNo || "evrak"}-${file.index}`} />
+            </div>;
         }
         if (tip === "jpg" || tip === "png") {
             return (
@@ -704,7 +844,7 @@ function TeslimEvraklari() {
                                 url,
                                 title: file.documentReferenceNumber
                             });
-                            setGorselZoom(1.8);
+                            setGorselZoom(1);
                         }}
                     />
                 </div>
@@ -717,10 +857,65 @@ function TeslimEvraklari() {
         ? seciliEvrak.files[seciliDosyaIndex] || seciliEvrak.files[0]
         : null;
 
+    // Evrak durumu kodlari: 1 bekliyor, 10 eksik, 20/30/31/40/50 islenmis.
+    // Beklenen dosya adedi API'de bulunmadigindan eksik evrak dosya sayisina gore tahmin edilmez.
+    const evrakHizliDurumu = (evrak) => {
+        const kod = Number(evrak?.tmsDespatchDocumentStatu);
+        const dosyaVar = (evrak?.files || []).some(f => f.hasFile);
+        if (kod === 10 || ([7, 8].includes(Number(seferDurumDegeriBul(evrak))) && !dosyaVar)) return "eksik";
+        if ([20, 30, 31, 40, 50].includes(kod) && dosyaVar) return "tamam";
+        if (kod === 1 || !dosyaVar) return "bekleyen";
+        return "diger";
+    };
+    const hizliSayilar = evraklar.reduce((sayilar, evrak) => {
+        sayilar[evrakHizliDurumu(evrak)] += 1;
+        return sayilar;
+    }, { eksik: 0, tamam: 0, bekleyen: 0, diger: 0 });
+
+    // Yalnizca API tarafindan gercekten saglanan verilerle kontrol yapilir.
+    const kontrolKayitlari = useMemo(() => evraklar.flatMap(evrak => {
+        const sonuc = [];
+        if (evrak.fileContentLoading) return sonuc;
+        const files = (evrak.files || []).filter(f => f.hasFile);
+        const status = Number(evrak.tmsDespatchDocumentStatu);
+        const tamamlananSefer = [7, 8].includes(Number(seferDurumDegeriBul(evrak)));
+        const add = (tip, baslik, detay) => sonuc.push({ tip, baslik, detay, evrak, key: `${seferAnahtari(evrak)}-${tip}` });
+        if (evrak.fileContentError && evrak.fileContentError !== "Dosya bulunamadı.") {
+            add("erisim", "Evrak sorgulanamadı", evrak.fileContentError);
+        } else if (tamamlananSefer && files.length === 0) {
+            add("eksik", "Tamamlanan seferde evrak yok", "Sefer tamamlandı, ancak görüntülenebilir dosya bulunamadı.");
+        } else if (status === 10) {
+            add("eksik", "Evrak durumu eksik", "TMS evrak durum kodu eksik olarak işaretlenmiş.");
+        } else if (status === 1 && files.length > 0) {
+            add("bekleyen", "Evrak kontrol bekliyor", "Dosya mevcut ancak evrak durumu beklemede.");
+        }
+        // Ayni seferde ayni dosya icerigi tekrar ediyorsa kesin kopya sayilir.
+        const gorulen = new Set();
+        let tekrar = 0;
+        files.forEach(f => {
+            const content = typeof f.fileContent === "string" ? f.fileContent : "";
+            if (!content) return;
+            if (gorulen.has(content)) tekrar++;
+            else gorulen.add(content);
+        });
+        if (tekrar > 0) add("mukerrer", "Aynı dosya tekrar ediyor", `${tekrar} adet birebir aynı içerikli dosya bulundu.`);
+        return sonuc;
+    }), [evraklar]);
+    const kontrolSayilari = kontrolKayitlari.reduce((acc, kayit) => {
+        acc[kayit.tip] = (acc[kayit.tip] || 0) + 1;
+        return acc;
+    }, {});
+    const gorunenKontroller = kontrolFiltre === "tum" ? kontrolKayitlari : kontrolKayitlari.filter(k => k.tip === kontrolFiltre);
     const filtreliEvraklar = useMemo(() => {
         const q = arama.trim().toLocaleLowerCase("tr-TR");
-        if (!q) return evraklar;
-        return evraklar.filter((evrak) => {
+        const result = evraklar.filter((evrak) => {
+            if (hizliFiltre !== "tum" && evrakHizliDurumu(evrak) !== hizliFiltre) return false;
+            if (seferFiltresi && seferDurumuBul(seferDurumDegeriBul(evrak)) !== seferFiltresi) return false;
+            if (evrakFiltresi && evrakDurumuBul(evrak?.tmsDespatchDocumentStatu) !== evrakFiltresi) return false;
+            const fileCount = (evrak?.files || []).filter(f => f.hasFile).length;
+            if (dosyaFiltresi === "var" && fileCount === 0) return false;
+            if (dosyaFiltresi === "yok" && fileCount > 0) return false;
+            if (!q) return true;
             const alanlar = [
                 evrak?.documentNo, evrak?.deliveryAddressCode, evrak?.plateNumber,
                 evrak?.trailerPlateNumber, evrak?.fullName, evrak?.customerOrderNumber,
@@ -735,23 +930,98 @@ function TeslimEvraklari() {
             ];
             return alanlar.filter(Boolean).some((v) => String(v).toLocaleLowerCase("tr-TR").includes(q));
         });
-    }, [arama, evraklar]);
+        if (sirala === "tarih-yeni") result.sort((a,b) => String(b.despatchDate || "").localeCompare(String(a.despatchDate || "")));
+        if (sirala === "tarih-eski") result.sort((a,b) => String(a.despatchDate || "").localeCompare(String(b.despatchDate || "")));
+        if (sirala === "sefer") result.sort((a,b) => String(a.documentNo || "").localeCompare(String(b.documentNo || ""), "tr"));
+        return result;
+    }, [arama, evraklar, seferFiltresi, evrakFiltresi, dosyaFiltresi, sirala, hizliFiltre]);
+
+    const gorunenSeferAnahtarlari = filtreliEvraklar.map(seferAnahtari);
+    const gorunenSeciliSayisi = gorunenSeferAnahtarlari.filter(k => seciliSeferAnahtarlari.includes(k)).length;
+    const tumGorunenlerSecili = gorunenSeferAnahtarlari.length > 0 && gorunenSeciliSayisi === gorunenSeferAnahtarlari.length;
+    const secimDegistir = (key, checked) => setSeciliSeferAnahtarlari(prev =>
+        checked ? [...new Set([...prev, key])] : prev.filter(k => k !== key)
+    );
+    const gorunenleriSec = (checked) => setSeciliSeferAnahtarlari(prev =>
+        checked ? [...new Set([...prev, ...gorunenSeferAnahtarlari])] : prev.filter(k => !gorunenSeferAnahtarlari.includes(k))
+    );
+    useEffect(() => {
+        const available = new Set(evraklar.map(seferAnahtari));
+        setSeciliSeferAnahtarlari(prev => prev.filter(k => available.has(k)));
+    }, [evraklar]);
+
+    const excelDegeri = (evrak, id) => {
+        switch (id) {
+            case "sefer": return `${evrak.documentNo || ""} / ${evrak.deliveryAddressCode || ""}`;
+            case "arac": return `${evrak.plateNumber || ""} / ${evrak.trailerPlateNumber || ""}`;
+            case "surucu": return `${evrak.fullName || ""}${musteriSiparisNoKurali ? " / " + (evrak.customerOrderNumber || "") : ""}`;
+            case "tarih": return formatTarih(evrak.despatchDate);
+            case "seferDurumu": return seferDurumuBul(seferDurumDegeriBul(evrak));
+            case "evrakDurumu": return evrakDurumuBul(evrak.tmsDespatchDocumentStatu);
+            case "gorusme": return evrak.takipError ? "Kayıt yok" : `${evrak.takipListesi?.length || 0} hareket`;
+            case "dosya": return `${(evrak.files || []).filter(f => f.hasFile).length}/${(evrak.files || []).length}`;
+            default: return "";
+        }
+    };
+    async function seciliExcelIndir() {
+        const liste = seciliSeferleriBul();
+        if (!liste.length) return;
+        setExcelLoading(true);
+        try {
+            const xmlEscape = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+            const cell = value => `<c t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+            const rows = [visibleColumnIds.map(id => ODAK_COLUMNS.find(c => c.id === id)?.label || id), ...liste.map(e => visibleColumnIds.map(id => excelDegeri(e, id)))];
+            const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows.map((row, index) => `<row r="${index + 1}">${row.map(cell).join("")}</row>`).join("")}</sheetData></worksheet>`;
+            const zip = new JSZip();
+            zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
+            zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+            zip.file("xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Teslim Evraklari" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+            zip.file("xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`);
+            zip.file("xl/worksheets/sheet1.xml", sheet);
+            const blob = await zip.generateAsync({type: "blob", compression: "DEFLATE"});
+            blobIndir(blob, "Secili_Teslim_Evraklari.xlsx");
+        } catch (error) {
+            console.error("EXCEL EXPORT ERROR:", error);
+            setHata("Seçilen seferler Excel'e aktarılamadı.");
+        } finally { setExcelLoading(false); }
+    }
 
     const yuklemeYuzdesi = toplamDosyaSayisi > 0
         ? Math.round((yuklenenDosyaSayisi / toplamDosyaSayisi) * 100)
         : 0;
 
     const siradakiKayit = Math.min(yuklenenDosyaSayisi + 1, toplamDosyaSayisi);
+    const kalanSaniye = yuklenenDosyaSayisi > 2 && gecenSure > 0
+        ? Math.max(0, Math.round((gecenSure / yuklenenDosyaSayisi) * (toplamDosyaSayisi - yuklenenDosyaSayisi)))
+        : null;
+    const sureMetni = (sn) => `${Math.floor(sn / 60)}:${String(sn % 60).padStart(2, "0")}`;
+    const seferSecenekleri = [...new Set(evraklar.map(e => seferDurumuBul(seferDurumDegeriBul(e))))].filter(Boolean).sort();
+    const evrakSecenekleri = [...new Set(evraklar.map(e => evrakDurumuBul(e.tmsDespatchDocumentStatu)))].filter(Boolean).sort();
 
     return (
-        <main className="teslim-page">
+        <main className="teslim-page odak-visual-v6 odak-visual-v7">
 
             {/* ── Full-screen loading overlay ── */}
             {(loading || mergeLoading) && (
                 <div className="loading-overlay">
-                    <div className="loader-wrap">
-                        <div className="loader-ring" />
-                        <div className="loader-core" />
+                    <div className="v5-loading-panel" role="status" aria-live="polite">
+                        <div className="v7-loader-art" aria-hidden="true">
+                            <div className="v7-orbit v7-orbit-outer" />
+                            <div className="v7-orbit v7-orbit-inner" />
+                            <div className="v7-loader-center">
+                                <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                                    <rect x="7" y="9" width="34" height="30" rx="7" stroke="currentColor" strokeWidth="2" opacity=".35" />
+                                    <path d="M15 19h18M15 25h12M15 31h8" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" />
+                                    <circle cx="34" cy="31" r="5" fill="#e33b49" stroke="#fff" strokeWidth="2" />
+                                </svg>
+                            </div>
+                            <span className="v7-spark v7-spark-one" />
+                            <span className="v7-spark v7-spark-two" />
+                        </div>
+                        <h2>{mergeLoading ? "PDF hazırlanıyor" : "Sefer kayıtları getiriliyor"}</h2>
+                        <p>{mergeLoading ? "Seçili evraklar tek dosyada birleştiriliyor." : "TMS bağlantısı üzerinden sefer ve evrak bilgileri alınıyor."}</p>
+                        <div className="v5-loader-track"><span /></div>
+                        <div className="v5-loader-meta"><span><i className="ti ti-clock" /> Geçen süre: {sureMetni(gecenSure)}</span><span>İşlem devam ediyor</span></div>
                     </div>
                 </div>
             )}
@@ -765,45 +1035,58 @@ function TeslimEvraklari() {
                     <div className="toast-body">
                         <strong>Evrak görselleri yükleniyor</strong>
                         <span>{yuklenenDosyaSayisi} / {toplamDosyaSayisi} kayıt tamamlandı</span>
-                        <small>{siradakiKayit}. kayıt hazırlanıyor...</small>
+                        <small>{siradakiKayit}. kayıt hazırlanıyor · Geçen: {sureMetni(gecenSure)}{kalanSaniye !== null ? ` · Tahmini kalan: ${sureMetni(kalanSaniye)}` : " · Süre hesaplanıyor"}</small>
                     </div>
                 </div>
             )}
 
             {/* ── Page header ── */}
-            <header className="page-header">
-                <div className="page-header-left">
-                    <div className="page-icon">
-                        <i className="ti ti-file-description" />
+            <header className="page-header odak-hero-v7" style={{"--odak-hero": `url(${odakHeroV7})`}}>
+                <div className="odak-hero-v7-photo" aria-hidden="true" />
+                <div className="odak-hero-v7-intro">
+                    <div className="odak-hero-v7-heading">
+                        <img className="odak-hero-v7-logo" src={odakLogoV7} alt="ODAK Lojistik" />
+                        <div className="odak-hero-v7-divider" />
+                        <div className="odak-hero-v7-title"><h1>Teslim Evrakları</h1><p>Sefer bazlı evrak görüntüleme ve toplu işlem</p></div>
                     </div>
-                    <div>
-                        <h1>Teslim Evrakları</h1>
-                        <p>Sefer bazlı evrak görüntüleme ve toplu PDF indirme</p>
+                    <div className="odak-hero-v7-features">
+                        <div><i className="ti ti-bolt" /><span><b>Hızlı Erişim</b><small>Tüm evraklar tek ekranda</small></span></div>
+                        <div><i className="ti ti-shield-check" /><span><b>Güvenli Arşiv</b><small>Dijital evrak yönetimi</small></span></div>
+                        <div><i className="ti ti-truck-delivery" /><span><b>Operasyonel Takip</b><small>Seferden evraka tam kontrol</small></span></div>
                     </div>
                 </div>
-                <div className="page-header-stats">
-                    {logBilgisi && (
-                        <>
-                            <div className="header-log-box">
-                                <span>Son Veri Çekme</span>
-                                <strong>{logBilgisi.tarih} - {logBilgisi.saat}</strong>
-                            </div>
-
-                            <div className="header-log-box">
-                                <span>Süre</span>
-                                <strong>{logBilgisi.sure} sn</strong>
-                            </div>
-                        </>
-                    )}
-
-                    <div className="evrak-count-badge">
-                        <span className="count-num">{evraklar.length}</span>
-                        <span className="count-lbl">evrak</span>
+                <div className="odak-hero-v7-right">
+                    <div className="odak-hero-v7-metrics">
+                        {logBilgisi && <>
+                            <div><i className="ti ti-clock"/><span><small>Son Veri Çekme</small><b>{logBilgisi.tarih} - {logBilgisi.saat}</b></span></div>
+                            <div><i className="ti ti-stopwatch"/><span><small>Süre</small><b>{logBilgisi.sure} sn</b></span></div>
+                        </>}
+                        <div className="odak-hero-v7-doc"><i className="ti ti-file-description"/><span><b>{evraklar.length}</b><small>Evrak</small></span></div>
                     </div>
+                    <div className="odak-hero-v7-motto">Güvenle<br/>Zamanında<br/>Her Yerde</div>
                 </div>
             </header>
 
             {/* ── Filter bar ── */}
+            <div className="odak-dashboard-strip">
+                <div className="odak-summary-section">
+                    <div className="odak-quick-filters" role="group" aria-label="Hızlı evrak filtreleri">
+                        {[
+                            { id: "tum", ad: "Tüm Seferler", adet: evraklar.length },
+                            { id: "eksik", ad: "Eksik Evrak", adet: hizliSayilar.eksik },
+                            { id: "tamam", ad: "Tamamlanan", adet: hizliSayilar.tamam },
+                            { id: "bekleyen", ad: "Bekleyenler", adet: hizliSayilar.bekleyen }
+                        ].map(f => (
+                            <button key={f.id} type="button"
+                                className={`odak-quick-filter ${hizliFiltre === f.id ? "is-active" : ""}`}
+                                aria-pressed={hizliFiltre === f.id}
+                                onClick={() => setHizliFiltre(f.id)}>
+                                <span className="odak-kpi-icon" aria-hidden="true"><i className={`ti ti-${f.id === "tum" ? "layers-intersect" : f.id === "eksik" ? "file-alert" : f.id === "tamam" ? "circle-check" : "clock"}`} /></span><span className="odak-kpi-content"><span>{f.ad}</span><strong>{f.adet}</strong></span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div className="odak-search-section">
             <section className="filter-bar">
                 <div className="filter-field">
                     <label>Başlangıç Tarihi</label>
@@ -831,7 +1114,7 @@ function TeslimEvraklari() {
                 </button>
                 <button
                     className="fetch-btn"
-                    onClick={topluZipIndir}
+                    onClick={() => topluZipIndir()}
                     disabled={
                         loading ||
                         fileLoading ||
@@ -843,6 +1126,9 @@ function TeslimEvraklari() {
                     {zipLoading ? "Hazırlanıyor..." : "Toplu İndir"}
                 </button>
             </section>
+
+                </div>
+            </div>
 
             {/* ── Error ── */}
             {hata && (
@@ -874,27 +1160,123 @@ function TeslimEvraklari() {
                         <div className="toolbar-left">
                             <h2>Sefer Listesi</h2>
                             <span className="record-count">{filtreliEvraklar.length} / {evraklar.length} kayıt</span>
+
+                        </div>
+                        <div className="odak-v7-table-quick" role="group" aria-label="Tablo hızlı filtreleri">
+                            {[
+                                { id: "tum", ad: "Tüm Seferler", adet: evraklar.length },
+                                { id: "eksik", ad: "Eksik Evrak", adet: hizliSayilar.eksik },
+                                { id: "tamam", ad: "Tamamlanan", adet: hizliSayilar.tamam },
+                                { id: "bekleyen", ad: "Bekleyenler", adet: hizliSayilar.bekleyen }
+                            ].map(f => <button key={f.id} type="button" className={`odak-v7-tab odak-v7-tab-${f.id} ${hizliFiltre === f.id ? "is-active" : ""}`}
+                                aria-pressed={hizliFiltre === f.id} onClick={() => setHizliFiltre(f.id)}>{f.ad}<strong>{f.adet}</strong></button>)}
+                        </div>
+                        <div className="odak-table-actions">
+                            <button type="button" className="odak-control-open" onClick={() => setKontrolPanelAcik(true)}>
+                                <i className="ti ti-shield-check" /> Evrak Kontrolü
+                                {kontrolKayitlari.length > 0 && <span>{kontrolKayitlari.length}</span>}
+                            </button>
+                            <button type="button" className="odak-action-button" disabled={!seciliSeferAnahtarlari.length || excelLoading} title="Önce tablodan sefer seçin" onClick={seciliExcelIndir}>
+                                <i className="ti ti-file-spreadsheet" /> Excel'e Aktar
+                            </button>
+                            <button type="button" className="odak-action-button" onClick={() => updateColumnView(defaultColumnView())}>
+                                <i className="ti ti-refresh" /> Sütunları Sıfırla
+                            </button>
                         </div>
                     </div>
 
+                    {columnView.hidden.length > 0 && (
+                        <div className="odak-hidden-columns">
+                            <span>Gizli sütunlar:</span>
+                            {columnView.hidden.map(id => (
+                                <button type="button" key={id} title="Sütunu yeniden göster"
+                                    onClick={() => updateColumnView(prev => ({...prev, hidden: prev.hidden.filter(x => x !== id)}))}>
+                                    + {ODAK_COLUMNS.find(c => c.id === id)?.label}
+                                </button>
+                            ))}
+                            <button type="button" className="odak-reset-columns" onClick={() => updateColumnView(defaultColumnView())}>Sıfırla</button>
+                        </div>
+                    )}
+                    <div className="v5-table-filters">
+                        <label>Sefer durumu
+                            <select value={seferFiltresi} onChange={e => setSeferFiltresi(e.target.value)}>
+                                <option value="">Tümü</option>
+                                {seferSecenekleri.map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                        </label>
+                        <label>Evrak durumu
+                            <select value={evrakFiltresi} onChange={e => setEvrakFiltresi(e.target.value)}>
+                                <option value="">Tümü</option>
+                                {evrakSecenekleri.map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                        </label>
+                        <label>Görsel / İrsaliye
+                            <select value={dosyaFiltresi} onChange={e => setDosyaFiltresi(e.target.value)}>
+                                <option value="">Tümü</option>
+                                <option value="var">Dosyası olan</option>
+                                <option value="yok">Dosyası olmayan</option>
+                            </select>
+                        </label>
+                        <label>Sıralama
+                            <select value={sirala} onChange={e => setSirala(e.target.value)}>
+                                <option value="varsayilan">Varsayılan</option>
+                                <option value="tarih-yeni">Tarih: Yeni → Eski</option>
+                                <option value="tarih-eski">Tarih: Eski → Yeni</option>
+                                <option value="sefer">Sefer numarası</option>
+                            </select>
+                        </label>
+                        <button type="button" className="v5-clear-filters" onClick={() => {setArama("");setSeferFiltresi("");setEvrakFiltresi("");setDosyaFiltresi("");setSirala("varsayilan");setHizliFiltre("tum");}}>
+                            <i className="ti ti-filter-off" /> Temizle
+                        </button>
+                    </div>
+                    {seciliSeferAnahtarlari.length > 0 && (
+                        <div className="odak-bulk-bar" role="region" aria-label="Seçili sefer işlemleri">
+                            <div className="odak-bulk-summary"><strong>{seciliSeferAnahtarlari.length} sefer seçildi</strong><span>Görünenlerden {gorunenSeciliSayisi} seçili</span></div>
+                            <div className="odak-bulk-buttons">
+                                <button type="button" disabled={zipLoading || fileLoading || loading} onClick={seciliZipIndir}><i className="ti ti-file-zip" /> {zipLoading ? "Hazırlanıyor..." : "Seçilen Evrakları ZIP İndir"}</button>
+                                <button type="button" disabled={excelLoading || loading} onClick={seciliExcelIndir}><i className="ti ti-file-spreadsheet" /> {excelLoading ? "Hazırlanıyor..." : "Excel'e Aktar"}</button>
+                                <button type="button" className="odak-bulk-clear" onClick={() => setSeciliSeferAnahtarlari([])}>Seçimi Temizle</button>
+                            </div>
+                        </div>
+                    )}
                     <div className="table-scroll">
                         <table className="evrak-table">
-                            <thead>
-                                <tr>
-                                    <th>Sefer / Nokta</th>
-                                    <th>Araç / Treyler</th>
-                                    <th>
-                                        {musteriSiparisNoKurali
-                                            ? "Sürücü / Müşteri Sipariş No"
-                                            : "Sürücü"}
+                            <colgroup>
+                                <col style={{width: "42px"}} />
+                                {visibleColumnIds.map(id => <col key={id} style={{width: columnView.widths[id] ? `${columnView.widths[id]}px` : undefined}} />)}
+                            </colgroup>
+                            <thead><tr>
+                                <th className="odak-select-column"><input type="checkbox" aria-label="Görünen seferleri seç" checked={tumGorunenlerSecili} ref={el => {if(el) el.indeterminate = gorunenSeciliSayisi > 0 && !tumGorunenlerSecili;}} onChange={e => gorunenleriSec(e.target.checked)} /></th>
+                                {visibleColumnIds.map(id => (
+                                    <th key={id} className={`odak-draggable-head ${id === "dosya" ? "col-center" : ""}`}
+                                        draggable
+                                        onDragStart={e => {draggedColumn.current = id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id);}}
+                                        onDragOver={e => {e.preventDefault(); e.dataTransfer.dropEffect = "move";}}
+                                        onDrop={e => {e.preventDefault(); dropColumn(id);}}
+                                        onDragEnd={() => {draggedColumn.current = null;}}>
+                                        <span className="odak-head-label">{id === "surucu" && musteriSiparisNoKurali ? "Sürücü / Müşteri Sipariş No" : ODAK_COLUMNS.find(c => c.id === id)?.label}</span>
+                                        <button type="button" className="odak-head-menu-trigger" title="Sütun seçenekleri"
+                                            aria-label={`${ODAK_COLUMNS.find(c => c.id)?.label} sütun seçenekleri`}
+                                            onClick={e => {e.stopPropagation(); setColumnMenuOpen(v => v === id ? null : id);}}>⋮</button>
+                                        {columnMenuOpen === id && <div className="odak-head-popover" onClick={e => e.stopPropagation()}>
+                                            <button type="button" disabled={visibleColumnIds.length <= 1}
+                                                onClick={() => {updateColumnView(prev => ({...prev, hidden: [...prev.hidden, id]})); setColumnMenuOpen(null);}}>Sütunu gizle</button>
+                                            <div className="odak-head-size">
+                                                <span>Genişlik</span>
+                                                <select aria-label="Sütun genişliği" value={columnView.widths[id] || ""}
+                                                    onChange={e => updateColumnView(prev => ({...prev, widths: {...prev.widths, [id]: e.target.value ? Number(e.target.value) : undefined}}))}>
+                                                    <option value="">Otomatik</option>
+                                                    <option value="110">110 px</option>
+                                                    <option value="150">150 px</option>
+                                                    <option value="190">190 px</option>
+                                                    <option value="240">240 px</option>
+                                                    <option value="300">300 px</option>
+                                                </select>
+                                            </div>
+                                        </div>}
                                     </th>
-                                    <th>Tarih</th>
-                                    <th>Sefer Durumu</th>
-                                    <th>Evrak Durumu</th>
-                                    <th>Görüşme Notu</th>
-                                    <th className="col-center">Görüntü / İrsaliye Sayısı</th>
-                                </tr>
-                            </thead>
+                                ))}
+                            </tr></thead>
                             <tbody>
                                 {filtreliEvraklar.map((evrak, index) => {
                                     const secili =
@@ -907,15 +1289,23 @@ function TeslimEvraklari() {
                                             className={secili ? "row-selected" : ""}
                                             onClick={() => seferSec(evrak)}
                                         >
-                                            <td>
+                                            <td className="odak-select-column" onClick={e => e.stopPropagation()}><input type="checkbox" aria-label={`${evrak.documentNo || "Sefer"} seç`} checked={seciliSeferAnahtarlari.includes(seferAnahtari(evrak))} onChange={e => secimDegistir(seferAnahtari(evrak), e.target.checked)} /></td>
+                                            {visibleColumnIds.map(id => {
+                                                const cells = {
+                                                    "sefer": (
+<td>
                                                 <span className="cell-primary">{deger(evrak.documentNo)}</span>
                                                 <span className="cell-secondary">{deger(evrak.deliveryAddressCode)}</span>
                                             </td>
-                                            <td>
+                                                    ),
+                                                    "arac": (
+<td>
                                                 <span className="cell-primary">{deger(evrak.plateNumber)}</span>
                                                 <span className="cell-secondary">{deger(evrak.trailerPlateNumber)}</span>
                                             </td>
-                                            <td>
+                                                    ),
+                                                    "surucu": (
+<td>
                                                 <span className="cell-primary">{deger(evrak.fullName)}</span>
 
                                                 {(
@@ -927,20 +1317,28 @@ function TeslimEvraklari() {
                                                         </span>
                                                     )}
                                             </td>
-                                            <td>
+                                                    ),
+                                                    "tarih": (
+<td>
                                                 <span className="cell-date">{formatTarih(evrak.despatchDate)}</span>
                                             </td>
-                                            <td>
+                                                    ),
+                                                    "seferDurumu": (
+<td>
                                                 <span className={`sefer-badge sefer-${seferDurum}`}>
                                                     {seferDurumuBul(seferDurum)}
                                                 </span>
                                             </td>
-                                            <td>
+                                                    ),
+                                                    "evrakDurumu": (
+<td>
                                                 <span className={`evrak-badge evrak-${evrak.tmsDespatchDocumentStatu}`}>
                                                     {evrakDurumuBul(evrak.tmsDespatchDocumentStatu)}
                                                 </span>
                                             </td>
-                                            <td>
+                                                    ),
+                                                    "gorusme": (
+<td>
                                                 <button
                                                     type="button"
                                                     className={`tracking-open-btn ${evrak.takipError ? "error" : ""}`}
@@ -948,34 +1346,40 @@ function TeslimEvraklari() {
                                                     disabled={evrak.takipLoading}
                                                     title="Araç takip detayını aç"
                                                 >
-                                                    {evrak.takipLoading ? (
-                                                        <span className="tracking-status-card loading">
-                                                            <span className="tracking-status-icon"><i className="ti ti-loader-2 spin" /></span>
-                                                            <span>
-                                                                <strong>Kontrol ediliyor</strong>
-                                                                <small>Takip bilgisi yükleniyor</small>
+                                                    {(() => {
+                                                        const loading = evrak.takipLoading;
+                                                        const empty = Boolean(evrak.takipError);
+                                                        const count = evrak.takipListesi?.length || 1;
+                                                        const label = loading ? "Kontrol ediliyor" : empty ? "Kayıt yok" : `${count} hareket`;
+                                                        const description = loading ? "Takip bilgisi yükleniyor" : empty ? "Henüz hareket eklenmedi" : `Son: ${takipDurumMetni(evrak.takip)}`;
+                                                        return (
+                                                            <span className={`odak-wave-status ${loading ? "is-loading" : empty ? "is-empty" : "is-ready"}`}>
+                                                                <span className="odak-wave-icon" aria-hidden="true">
+                                                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                                                        {loading ? (
+                                                                            <><path d="M20 11a8 8 0 0 0-14.9-4M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.9 4M20 20v-4h-4"/></>
+                                                                        ) : empty ? (
+                                                                            <><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10z"/><path d="M13 3v7h7"/><circle cx="12" cy="15" r="3"/><path d="M12 13.5V15l1 1"/></>
+                                                                        ) : (
+                                                                            <><circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 18h6a5 5 0 0 0 0-10H9a3 3 0 0 0 0 6h1"/></>
+                                                                        )}
+                                                                    </svg>
+                                                                </span>
+                                                                <span className="odak-wave-bars" aria-hidden="true">
+                                                                    {[3, 7, 12, 6, 15, 9, 5].map((height, i) => (
+                                                                        <span key={i} style={{ "--wave-h": `${height}px`, "--wave-i": i }} />
+                                                                    ))}
+                                                                </span>
+                                                                <span className="odak-wave-copy"><strong>{label}</strong><small>{description}</small></span>
+                                                                <i className="ti ti-chevron-right odak-wave-chevron" aria-hidden="true" />
                                                             </span>
-                                                        </span>
-                                                    ) : evrak.takipError ? (
-                                                        <span className="tracking-status-card empty">
-                                                            <span className="tracking-status-icon"><i className="ti ti-map-off" /></span>
-                                                            <span>
-                                                                <strong>Kayıt Yok</strong>
-                                                                <small>Takip hareketi bulunamadı</small>
-                                                            </span>
-                                                        </span>
-                                                    ) : (
-                                                        <span className="tracking-status-card ok">
-                                                            <span className="tracking-status-icon"><i className="ti ti-route" /></span>
-                                                            <span>
-                                                                <strong>Kayıt Var · {evrak.takipListesi?.length || 1}</strong>
-                                                                <small>{takipDurumMetni(evrak.takip)} · {takipKonumMetni(evrak.takip)}</small>
-                                                            </span>
-                                                        </span>
-                                                    )}
+                                                        );
+                                                    })()}
                                                 </button>
                                             </td>
-                                            <td className="col-center">
+                                                    ),
+                                                    "dosya": (
+<td className="col-center">
                                                 {evrak.fileContentLoading ? (
                                                     <span className="file-chip loading">
                                                         <i className="ti ti-loader-2 spin" /> Yükleniyor
@@ -991,6 +1395,10 @@ function TeslimEvraklari() {
                                                     </span>
                                                 )}
                                             </td>
+                                                    ),
+                                                };
+                                                return <Fragment key={id}>{cells[id]}</Fragment>;
+                                            })}
                                         </tr>
                                     );
                                 })}
@@ -998,6 +1406,38 @@ function TeslimEvraklari() {
                         </table>
                     </div>
                 </section>
+            )}
+
+            {kontrolPanelAcik && (
+                <div className="odak-control-backdrop" onClick={() => setKontrolPanelAcik(false)}>
+                    <aside className="odak-control-drawer" role="dialog" aria-modal="true" aria-label="Evrak Kontrol Merkezi" onClick={e => e.stopPropagation()}>
+                        <header className="odak-control-header">
+                            <div><span className="odak-control-eyebrow">OPERASYON KONTROLÜ</span><h2>Evrak Kontrol Merkezi</h2><p>Mevcut seferlerin dosya ve durum kontrolleri</p></div>
+                            <button type="button" aria-label="Kontrol panelini kapat" onClick={() => setKontrolPanelAcik(false)}>×</button>
+                        </header>
+                        <div className="odak-control-stats">
+                            {[
+                                {id:"tum",title:"Tüm Uyarılar",icon:"ti-list-check"},
+                                {id:"eksik",title:"Eksik Evrak",icon:"ti-file-alert"},
+                                {id:"bekleyen",title:"Kontrol Bekleyen",icon:"ti-clock"},
+                                {id:"mukerrer",title:"Aynı Dosya",icon:"ti-copy"},
+                                {id:"erisim",title:"Sorgu Hatası",icon:"ti-alert-triangle"}
+                            ].map(item => <button key={item.id} type="button" className={kontrolFiltre === item.id ? "active" : ""} onClick={() => setKontrolFiltre(item.id)}>
+                                <i className={`ti ${item.icon}`} /><span>{item.title}</span><strong>{item.id === "tum" ? kontrolKayitlari.length : kontrolSayilari[item.id] || 0}</strong>
+                            </button>)}
+                        </div>
+                        <div className="odak-control-list">
+                            {gorunenKontroller.length === 0 ? <div className="odak-control-empty"><i className="ti ti-circle-check" /><strong>Bu kategoride uyarı yok</strong><span>Dosyalar yüklenirken kontrol sonuçları güncellenir.</span></div> :
+                                gorunenKontroller.map((kayit, index) => <button type="button" className="odak-control-issue" key={`${kayit.key}-${index}`}
+                                    onClick={() => { setKontrolPanelAcik(false); seferSec(kayit.evrak); }}>
+                                    <i className={`ti ${kayit.tip === "mukerrer" ? "ti-copy" : kayit.tip === "bekleyen" ? "ti-clock" : "ti-file-alert"}`} />
+                                    <span><strong>{kayit.baslik}</strong><small>{kayit.detay}</small><em>{kayit.evrak.tmsDespatchDocumentNumber || kayit.evrak.tmsDespatchId || "Sefer detayı"}</em></span>
+                                    <i className="ti ti-chevron-right" />
+                                </button>)}
+                        </div>
+                        <footer className="odak-control-footer">Beklenen evrak adedi ve dosya bütünlük doğrulaması API'de sağlanmadığından bu kontroller yapılmaz. Dosya içerikleri sunucuya gönderilmez.</footer>
+                    </aside>
+                </div>
             )}
 
             {/* ── Detail Modal ── */}
@@ -1023,7 +1463,12 @@ function TeslimEvraklari() {
 
                         <div className="modal-body">
                             {/* Status pills */}
-                            <div className="modal-status-row">
+                            <div className="odak-v16-progress">
+    <div><span>Sefer tarihi</span><strong>{formatTarih(seciliEvrak.despatchDate)}</strong></div>
+    <div><span>Son takip</span><strong>{takipTarihFormatla(seciliEvrak.takip?.tarih)}</strong></div>
+    <div><span>Teslim noktasi</span><strong>{deger(seciliEvrak.deliveryAddressCode)}</strong></div>
+</div>
+<div className="modal-status-row">
                                 <div className="status-pill">
                                     <span className="pill-label">Sefer Durumu</span>
                                     <span className={`sefer-badge sefer-${seferDurumDegeriBul(seciliEvrak)}`}>
@@ -1188,104 +1633,72 @@ function TeslimEvraklari() {
             )}
 
             {takipPanel && (
-                <div
-                    className="tracking-floating-panel modern"
-                    style={{ left: takipPanelPozisyon.x, top: takipPanelPozisyon.y }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="tracking-panel-header modern" onMouseDown={takipPanelSurukleBaslat}>
-                        <div className="tracking-panel-title-wrap">
-                            <div className="tracking-panel-icon"><i className="ti ti-truck-delivery" /></div>
-                            <div>
-                                <span>Araç Takip Paneli</span>
-                                <strong>{deger(takipPanel.documentNo)} · {deger(takipPanel.plateNumber)}</strong>
-                            </div>
-                        </div>
-                        <button type="button" onClick={() => setTakipPanel(null)} aria-label="Kapat">
-                            <i className="ti ti-x" />
-                        </button>
-                    </div>
-
-                    <div className="tracking-panel-hero">
-                        <div>
-                            <span className="hero-label">Kayıt Durumu</span>
-                            {takipPanel.takipLoading ? (
-                                <strong className="hero-title loading-text">Kontrol ediliyor</strong>
-                            ) : takipPanel.takipError ? (
-                                <strong className="hero-title no-record">Kayıt Yok</strong>
-                            ) : (
-                                <strong className="hero-title has-record">Kayıt Var</strong>
-                            )}
-                            <p>
-                                {takipPanel.takipError
-                                    ? "Bu sefer için araç takip hareketi bulunamadı."
-                                    : `Bu sefer için ${takipPanel.takipListesi?.length || 0} adet takip hareketi listeleniyor.`}
-                            </p>
-                        </div>
-                        <div className="hero-count-card">
-                            <span>{takipPanel.takipListesi?.length || 0}</span>
-                            <small>hareket</small>
-                        </div>
-                    </div>
-
-                    <div className="tracking-panel-summary modern">
-                        <div>
-                            <span>Sürücü</span>
-                            <strong>{deger(takipPanel.fullName)}</strong>
-                        </div>
-                        <div>
-                            <span>Son Durum</span>
-                            <strong>{seferDurumuBul(seferDurumDegeriBul(takipPanel))}</strong>
-                        </div>
-                        <div>
-                            <span>Son Konum</span>
-                            <strong>
-                                {takipPanel.takipError
-                                    ? "-"
-                                    : takipKonumMetni(takipPanel.takipListesi?.[takipPanel.takipListesi.length - 1])}
-                            </strong>
-                        </div>
-                    </div>
-
-                    {takipPanel.takipLoading ? (
-                        <div className="tracking-panel-empty modern-empty">
-                            <i className="ti ti-loader-2 spin" />
-                            Takip verileri yükleniyor...
-                        </div>
-                    ) : takipPanel.takipError ? (
-                        <div className="tracking-panel-empty modern-empty error">
-                            <i className="ti ti-map-off" />
-                            <strong>Kayıt bulunamadı</strong>
-                            <span>Bu sefere ait araç takip hareketi yok.</span>
-                        </div>
-                    ) : (
-                        <div className="tracking-timeline modern">
-                            {(takipPanel.takipListesi || []).map((takip, index) => (
-                                <div className="tracking-timeline-item modern" key={`${takipTarihDegeri(takip)}-${index}`}>
-                                    <div className="tracking-dot modern">{index + 1}</div>
-                                    <div className="tracking-item-card modern">
-                                        <div className="tracking-item-top modern">
-                                            <div>
-                                                <strong>{takipDurumMetni(takip)}</strong>
-                                                <small>Veri Giriş Tarihi: {takipTarihFormatla(takipTarihDegeri(takip))}</small>
-                                            </div>
-                                            <span className="movement-badge">Hareket {index + 1}</span>
-                                        </div>
-                                        <div className="tracking-item-grid">
-                                            <div>
-                                                <span><i className="ti ti-map-pin" /> Konum</span>
-                                                <strong>{takipKonumMetni(takip)}</strong>
-                                            </div>
-                                            <div>
-                                                <span><i className="ti ti-user" /> Oluşturan</span>
-                                                <strong>{takipKullaniciMetni(takip)}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
+                <div className="odak-track-backdrop" onClick={() => setTakipPanel(null)}>
+                    <aside className="odak-track-drawer" role="dialog" aria-modal="true" aria-label="Araç takip detayları" onClick={(e) => e.stopPropagation()}>
+                        <header className="odak-track-header">
+                            <div className="odak-track-map-v14" aria-hidden="true" />
+                            <div className="odak-track-header-content">
+                                <span className="odak-track-head-icon"><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h11v11H3z M14 10h4l3 4v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></span>
+                                <div className="odak-track-heading">
+                                    <span>ARAÇ TAKİP PANELİ</span>
+                                    <strong>{deger(takipPanel.documentNo)} - {deger(takipPanel.plateNumber)}</strong>
+                                    <small><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="2.5"/></svg> {deger(takipPanel.plateNumber)}</small>
                                 </div>
-                            ))}
+                            </div>
+                            <div className="odak-track-header-actions">
+                                <span className="odak-track-live"><span /> Sefer Takibi</span>
+                                <button type="button" onClick={() => setTakipPanel(null)} aria-label="Paneli kapat"><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                            </div>
+                        </header>
+                        <div className="odak-track-content">
+                            <section className="odak-track-overview">
+                                <div className="odak-track-status-icon">{takipPanel.takipLoading ? <svg className="odak-svg-icon odak-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"/></svg> : takipPanel.takipError ? <svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 12v4M12 19h.01"/></svg> : <svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 15l3 3 5-6"/></svg>}</div>
+                                <div className="odak-track-status-copy">
+                                    <span>KAYIT DURUMU</span>
+                                    <strong className={takipPanel.takipError ? "is-empty" : ""}>{takipPanel.takipLoading ? "Kontrol ediliyor" : takipPanel.takipError ? "Kayıt Yok" : "Kayıt Var"}</strong>
+                                    <p>{takipPanel.takipError ? "Bu sefere ait takip hareketi bulunamadı." : `Bu sefer için ${takipPanel.takipListesi?.length || 0} adet takip hareketi listeleniyor.`}</p>
+                                </div>
+                                <div className="odak-track-last">
+                                    <span className="odak-track-equalizer" aria-hidden="true">{[8,19,12,26,16,10].map((h,i) => <i key={i} style={{height:h}} />)}</span>
+                                    <div><small>Son Hareket</small><strong>{takipPanel.takipListesi?.length ? takipTarihFormatla(takipTarihDegeri(takipPanel.takipListesi[takipPanel.takipListesi.length-1])) : "—"}</strong></div>
+                                </div>
+                                <div className="odak-track-count"><strong>{takipPanel.takipListesi?.length || 0}</strong><span>hareket</span></div>
+                            </section>
+                            <div className="odak-track-stats">
+                                <div className="odak-track-stat driver"><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><div><span>Sürücü</span><strong>{deger(takipPanel.fullName)}</strong></div></div>
+                                <div className="odak-track-stat state"><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><div><span>Son Durum</span><strong>{seferDurumuBul(seferDurumDegeriBul(takipPanel))}</strong></div></div>
+                                <div className="odak-track-stat place"><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="2.5"/></svg><div><span>Son Konum</span><strong>{takipPanel.takipError ? "—" : takipKonumMetni(takipPanel.takipListesi?.[takipPanel.takipListesi.length-1])}</strong></div></div>
+                            </div>
+                            <section className="odak-track-history">
+                                <div className="odak-track-history-head">
+                                    <span className="odak-track-history-icon"><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-7M3 3v6h6M12 7v5l4 2"/></svg></span>
+                                    <div><h3>Hareket Geçmişi <em>{takipPanel.takipListesi?.length || 0}</em></h3><p>Bu sefere ait takip hareketleri</p></div>
+                                </div>
+                                {takipPanel.takipLoading ? (
+                                    <div className="odak-track-message"><svg className="odak-svg-icon odak-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"/></svg> Takip verileri yükleniyor...</div>
+                                ) : takipPanel.takipError ? (
+                                    <div className="odak-track-message"><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 3 18 18M9 5l3-2 7 3 2 2v10l-6 3-7-3-5 2V7z"/></svg> Bu sefere ait takip kaydı bulunamadı.</div>
+                                ) : (
+                                    <div className="odak-track-events">
+                                        {(takipPanel.takipListesi || []).map((takip,index) => (
+                                            <article className="odak-track-event" key={`${takipTarihDegeri(takip)}-${index}`}>
+                                                <span className="odak-track-event-number">{index+1}</span>
+                                                <span className="odak-track-event-symbol"><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m12 2 9 5-9 5-9-5 9-5zM3 7v10l9 5 9-5V7M12 12v10"/></svg></span>
+                                                <div className="odak-track-event-card">
+                                                    <div className="odak-track-event-title"><div><strong>{takipDurumMetni(takip)}</strong><time>{takipTarihFormatla(takipTarihDegeri(takip))}</time></div><span>Hareket {index+1}</span></div>
+                                                    <div className="odak-track-event-grid">
+                                                        <div><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Konum<strong>{takipKonumMetni(takip)}</strong></span></div>
+                                                        <div><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>Oluşturan<strong>{takipKullaniciMetni(takip)}</strong></span></div>
+                                                        <div><svg className="odak-svg-icon " width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 15h3"/></svg><span>Veri Giriş Tarihi<strong>{takipTarihFormatla(takipTarihDegeri(takip))}</strong></span></div>
+                                                    </div>
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
                         </div>
-                    )}
+                    </aside>
                 </div>
             )}
             {buyukGorsel && (
@@ -1301,15 +1714,17 @@ function TeslimEvraklari() {
                             <strong>{buyukGorsel.title}</strong>
 
                             <div className="image-preview-actions">
-                                <button onClick={() => setGorselZoom((z) => Math.max(1, z - 0.3))}>
+                                <button title="Uzaklaştır" aria-label="Uzaklaştır" onClick={() => setGorselZoom((z) => Math.max(.5, +(z - .25).toFixed(2)))}>
                                     -
                                 </button>
 
-                                <button onClick={() => setGorselZoom((z) => z + 0.3)}>
+                                <button title="Yakınlaştır" aria-label="Yakınlaştır" onClick={() => setGorselZoom((z) => Math.min(4, +(z + .25).toFixed(2)))}>
                                     +
                                 </button>
 
-                                <button onClick={() => {
+                                <span className="v5-zoom-label">%{Math.round(gorselZoom * 100)}</span>
+                                <button className="v5-fit-btn" title="Ekrana sığdır" onClick={() => setGorselZoom(1)}>Sığdır</button>
+                                <button title="Kapat" aria-label="Kapat" onClick={() => {
                                     setBuyukGorsel(null);
                                     setGorselZoom(1);
                                 }}>
@@ -1319,14 +1734,21 @@ function TeslimEvraklari() {
                         </div>
 
                         <div className="image-preview-body">
-                            <img
-                                src={buyukGorsel.url}
-                                alt={buyukGorsel.title}
-                                style={{
-                                    transform: `scale(${gorselZoom})`,
-                                    transformOrigin: "center center"
-                                }}
-                            />
+                            {buyukGorsel.type === "pdf" ? (
+                                <iframe src={buyukGorsel.url} title={buyukGorsel.title || "PDF"} />
+                            ) : (
+                                <img
+                                    src={buyukGorsel.url}
+                                    alt={buyukGorsel.title || "Evrak"}
+                                    style={{
+                                        width: `${gorselZoom * 100}%`,
+                                        height: `${gorselZoom * 100}%`,
+                                        objectFit: "contain",
+                                        maxWidth: "none",
+                                        maxHeight: "none"
+                                    }}
+                                />
+                            )}
                         </div>
                     </div>
                 </div>
