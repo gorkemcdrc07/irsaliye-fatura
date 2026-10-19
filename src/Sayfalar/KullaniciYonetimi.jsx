@@ -26,7 +26,7 @@ const TUM_YETKILER = [
     },
 ];
 function bosForm() {
-    return { userName: "", password: "", customerId: "", permissions: [] };
+    return { userName: "", password: "", customerId: "", permissions: [], role: "kullanici" };
 }
 
 function Modal({ title, eyebrow, onClose, children }) {
@@ -135,7 +135,7 @@ function KullaniciYonetimi() {
         setTableLoading(true);
         const { data, error } = await supabase
             .from("users")
-            .select("id, user_name, customer_id, is_active, permissions, customer_order_no_rule, created_at")
+            .select("id, user_name, customer_id, is_active, permissions, customer_order_no_rule, role, created_at")
             .order("id", { ascending: false });
         if (!error) setUsers(data || []);
         setTableLoading(false);
@@ -178,6 +178,7 @@ function KullaniciYonetimi() {
             is_active: true,
             permissions: form.permissions,
             customer_order_no_rule: form.permissions.includes("musteriSiparisNo"),
+            role: form.role,
         });
         setLoading(false);
         if (error) { setHata(error.message || "Kullanıcı eklenemedi."); return; }
@@ -202,6 +203,7 @@ function KullaniciYonetimi() {
             customer_id: form.customerId.trim(),
             permissions: form.permissions,
             customer_order_no_rule: form.permissions.includes("musteriSiparisNo"),
+            role: form.role,
         };
         if (form.password.trim()) guncel.password = form.password.trim();
 
@@ -236,6 +238,7 @@ function KullaniciYonetimi() {
             password: "",
             customerId: user.customer_id,
             permissions: Array.isArray(user.permissions) ? user.permissions : [],
+            role: user.role === "admin" ? "admin" : "kullanici",
         });
         setHata("");
     }
@@ -504,6 +507,7 @@ function KullaniciYonetimi() {
                         </FormField>
                     </div>
 
+                    <div className="odak-admin-role"><div><strong>Hesap Rolü</strong><small>Admin yetkisini yalnızca yetkili kişilere verin.</small></div><select value={form.role} onChange={e => formDegistir("role",e.target.value)}><option value="kullanici">Standart Kullanıcı</option><option value="admin">Admin</option></select></div>
                     <div className="form-section">
                         <label className="section-label"><i className="ti ti-shield" /> Yetkiler</label>
                         <YetkiSecici

@@ -1,3 +1,4 @@
+﻿@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css');
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500;600&display=swap');
 
 /* ─── Base ─────────────────────────────────────────────────── */
@@ -1056,7 +1057,7 @@
 @media(prefers-reduced-motion:reduce){.odak-users-v1 *{transition:none!important;animation:none!important}}
 
 /* Premium 2026 user-management design — isolated to this page */
-@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css');
+
 .premium-users{background:#f3f7fd!important;gap:14px!important;padding:14px!important;color:#10274c}
 .premium-users .page-header{min-height:90px;border-radius:14px;background:radial-gradient(ellipse at 90% 30%,#7f102e 0%,transparent 34%),linear-gradient(105deg,#0b244a 0%,#142e55 48%,#31162f 80%,#650d25 100%);box-shadow:0 9px 22px #102c5115;padding:18px 22px}
 .premium-users .page-header h1{font-size:23px;font-weight:800;color:white}
@@ -1113,3 +1114,6 @@
 .premium-users .card-mode tbody td:last-child{margin-left:auto}
 @media(max-width:1050px){.premium-users .premium-filters{flex-wrap:wrap}.premium-users .premium-filters .search-wrap{flex-basis:100%}.premium-users .premium-select{flex:1 1 160px}}
 @media(max-width:700px){.premium-users .stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.premium-users .page-header{flex-wrap:wrap;gap:14px}.premium-users .premium-filters{padding:10px}.premium-users .table-scroll{overflow-x:auto}.premium-users .user-table{min-width:950px}}
+
+.odak-admin-role{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:14px 0;padding:15px;border:1px solid #dce6f3;border-radius:12px;background:#f7faff}.odak-admin-role>div{display:flex;flex-direction:column;gap:5px}.odak-admin-role small{color:#7186a3;font-size:11px}.odak-admin-role select{padding:10px;border:1px solid #d5e0ee;border-radius:9px;background:white;color:#193354}
+

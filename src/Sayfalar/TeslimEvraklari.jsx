@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
+import { supabase } from "../supabaseClient";
 import JSZip from "jszip";
 import "./TeslimEvraklari.css";
 import odakLogoV7 from "./odak-logo-v7.webp";
@@ -28,6 +29,23 @@ function TeslimEvraklari() {
         return `${yil}-${ay}-${gun}`;
     };
 
+    const [adminMusteriler, setAdminMusteriler] = useState([]);
+    const [adminMusteriId, setAdminMusteriId] = useState("");
+    const [adminMusteriAra, setAdminMusteriAra] = useState("");
+    const [adminMusteriHata, setAdminMusteriHata] = useState("");
+    const adminGorunumu = localStorage.getItem("role") === "admin";
+    useEffect(() => {
+        if (!adminGorunumu) return;
+        let active = true;
+        (async () => {
+            const { data, error } = await supabase.from("users").select("id, user_name, customer_id, is_active").eq("is_active", true).order("user_name");
+            if (!active) return;
+            if (error) { setAdminMusteriHata("Müşteri listesi yüklenemedi."); return; }
+            setAdminMusteriler((data || []).filter(u => u.customer_id != null && String(u.customer_id).trim() !== "" && Number(u.customer_id) !== 0 && Number.isFinite(Number(u.customer_id))));
+        })();
+        return () => { active = false; };
+    }, [adminGorunumu]);
+    const adminFiltreliMusteriler = adminMusteriler.filter(u => `${u.user_name} ${u.customer_id}`.toLocaleLowerCase("tr-TR").includes(adminMusteriAra.toLocaleLowerCase("tr-TR")));
     const [baslangic, setBaslangic] = useState(formatDate(ayinIlkGunu));
     const [bitis, setBitis] = useState(formatDate(ayinSonGunu));
     const [evraklar, setEvraklar] = useState([]);
@@ -475,7 +493,15 @@ function TeslimEvraklari() {
 
         const aktifIstek = Date.now();
         istekNo.current = aktifIstek;
-        const customerId = localStorage.getItem("customerId");
+        const kendiCustomerId = localStorage.getItem("customerId");
+        const seciliMusteri = adminGorunumu && adminMusteriId
+            ? adminMusteriler.find(u => String(u.id) === adminMusteriId)
+            : null;
+        if (adminGorunumu && adminMusteriId && !seciliMusteri) {
+            setHata("Seçilen müşteri bulunamadı. Lütfen tekrar seçin.");
+            return;
+        }
+        const customerId = seciliMusteri ? String(seciliMusteri.customer_id) : kendiCustomerId;
         const permissions = JSON.parse(localStorage.getItem("permissions") || "[]");
 
         const customerOrderNoRule =
@@ -1066,6 +1092,9 @@ function TeslimEvraklari() {
                     <div className="odak-hero-v7-motto">Güvenle<br/>Zamanında<br/>Her Yerde</div>
                 </div>
             </header>
+
+            {/* Admin customer selection sits outside the KPI / filter grid. */}
+            {adminGorunumu && <section className="odak-admin-customer-picker"><div className="odak-admin-picker-title"><i className="ti ti-users-group" /><div><strong>Admin · Müşteri Seçimi</strong><span>Customer ID 0 olmayan aktif kullanıcılar</span></div></div><input aria-label="Müşteri ara" placeholder="Kullanıcı adı veya Customer ID ara..." value={adminMusteriAra} onChange={e=>setAdminMusteriAra(e.target.value)} /><select aria-label="Müşteri seç" value={adminMusteriId} onChange={e=>{setAdminMusteriId(e.target.value);setEvraklar([]);setSeciliEvrak(null);setIlkYuklemeTamamlandi(false);}}><option value="">Müşteri seçiniz</option>{adminFiltreliMusteriler.map(u=><option key={u.id} value={String(u.id)}>{u.user_name} · Customer ID: {u.customer_id}</option>)}</select>{adminMusteriHata && <small>{adminMusteriHata}</small>}</section>}
 
             {/* ── Filter bar ── */}
             <div className="odak-dashboard-strip">
