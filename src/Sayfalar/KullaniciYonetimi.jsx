@@ -263,7 +263,7 @@ function KullaniciYonetimi() {
                 return response.json();
             };
             const end = new Date();
-            const start = new Date(end); start.setFullYear(start.getFullYear() - 1);
+            const start = new Date(end); start.setDate(start.getDate() - 7);
             const date = d => d.toISOString().slice(0, 10);
             const result = await apiIstek("/odak-api/api/tmsdespatchdocuments/getall", { startDate: date(start), endDate: date(end), customerId: Number(customerId), vehicleId: 0, driverId: 0 });
             const items = Array.isArray(result) ? result : result?.data || result?.items || result?.result || [];
@@ -620,3 +620,4 @@ function KullaniciYonetimi() {
 }
 
 export default KullaniciYonetimi;
+
