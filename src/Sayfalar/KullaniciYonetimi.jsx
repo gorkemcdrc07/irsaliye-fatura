@@ -1,4 +1,4 @@
-import "@tabler/icons-webfont/dist/tabler-icons.min.css";
+﻿import "@tabler/icons-webfont/dist/tabler-icons.min.css";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabaseClient";
 import "./KullaniciYonetimi.css";
@@ -26,7 +26,7 @@ const TUM_YETKILER = [
     },
 ];
 function bosForm() {
-    return { userName: "", password: "", customerId: "", permissions: [], role: "kullanici" };
+    return { userName: "", password: "", customerId: "", permissions: [], role: "kullanici", projectNames: [] };
 }
 
 function Modal({ title, eyebrow, onClose, children }) {
@@ -110,6 +110,9 @@ function YetkiSecici({ value, onChange }) {
 
 function KullaniciYonetimi() {
     const [users, setUsers] = useState([]);
+    const [projeSecenekleri, setProjeSecenekleri] = useState([]);
+    const [projeYukleniyor, setProjeYukleniyor] = useState(false);
+    const [projeHatasi, setProjeHatasi] = useState("");
     const [loading, setLoading] = useState(false);
     const [tableLoading, setTableLoading] = useState(true);
     const [hata, setHata] = useState("");
@@ -135,7 +138,7 @@ function KullaniciYonetimi() {
         setTableLoading(true);
         const { data, error } = await supabase
             .from("users")
-            .select("id, user_name, customer_id, is_active, permissions, customer_order_no_rule, role, created_at")
+            .select("id, user_name, customer_id, is_active, permissions, customer_order_no_rule, role, created_at, allowed_project_names")
             .order("id", { ascending: false });
         if (!error) setUsers(data || []);
         setTableLoading(false);
@@ -179,6 +182,7 @@ function KullaniciYonetimi() {
             permissions: form.permissions,
             customer_order_no_rule: form.permissions.includes("musteriSiparisNo"),
             role: form.role,
+            allowed_project_names: form.projectNames,
         });
         setLoading(false);
         if (error) { setHata(error.message || "Kullanıcı eklenemedi."); return; }
@@ -204,6 +208,7 @@ function KullaniciYonetimi() {
             permissions: form.permissions,
             customer_order_no_rule: form.permissions.includes("musteriSiparisNo"),
             role: form.role,
+            allowed_project_names: form.projectNames,
         };
         if (form.password.trim()) guncel.password = form.password.trim();
 
@@ -239,8 +244,32 @@ function KullaniciYonetimi() {
             customerId: user.customer_id,
             permissions: Array.isArray(user.permissions) ? user.permissions : [],
             role: user.role === "admin" ? "admin" : "kullanici",
+            projectNames: Array.isArray(user.allowed_project_names) ? user.allowed_project_names : [],
         });
         setHata("");
+        projeleriGetir(user.customer_id);
+    }
+
+    // Proje isimlerini müşterinin mevcut teslim evrakı API yanıtından al.
+    async function projeleriGetir(customerId) {
+        setProjeSecenekleri([]);
+        setProjeHatasi("");
+        if (!String(customerId || "").trim()) return;
+        setProjeYukleniyor(true);
+        try {
+            const apiIstek = async (url, body) => {
+                const response = await fetch(`${import.meta.env.DEV ? "" : import.meta.env.VITE_SHO_API_BASE_URL}${url}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || "supabase-login"}` }, body: JSON.stringify(body) });
+                if (!response.ok) throw new Error(`Proje API hatası: ${response.status}`);
+                return response.json();
+            };
+            const end = new Date();
+            const start = new Date(end); start.setFullYear(start.getFullYear() - 1);
+            const date = d => d.toISOString().slice(0, 10);
+            const result = await apiIstek("/odak-api/api/tmsdespatchdocuments/getall", { startDate: date(start), endDate: date(end), customerId: Number(customerId), vehicleId: 0, driverId: 0 });
+            const items = Array.isArray(result) ? result : result?.data || result?.items || result?.result || [];
+            setProjeSecenekleri([...new Set(items.map(x => String(x.ProjectName ?? x.projectName ?? x.projectname ?? "").trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b, "tr")));
+        } catch (err) { setProjeHatasi(err.message || "Projeler alınamadı"); }
+        finally { setProjeYukleniyor(false); }
     }
 
     const filtreliUsers = useMemo(() => {
@@ -300,7 +329,7 @@ function KullaniciYonetimi() {
                         <p>Kullanıcıları ekle, düzenle, yetkilendir ve durumlarını yönet</p>
                     </div>
                 </div>
-                <button className="add-btn" onClick={() => { setEklemeAcik(true); setForm(bosForm()); setHata(""); }}>
+                <button className="add-btn" onClick={() => { setEklemeAcik(true); setForm(bosForm()); setProjeSecenekleri([]); setHata(""); }}>
                     <i className="ti ti-plus" /> Yeni Kullanıcı
                 </button>
             </header>
@@ -507,6 +536,16 @@ function KullaniciYonetimi() {
                         </FormField>
                     </div>
 
+                    <div className="form-section odak-project-permissions">
+                        <label className="section-label"><i className="ti ti-folders" /> Teslim Evrakları · Proje Görünürlüğü</label>
+                        <p>Hiç proje seçilmezse müşterinin tüm projeleri görünür.</p>
+                        <button type="button" className="btn-secondary" disabled={projeYukleniyor || !form.customerId.trim()} onClick={() => projeleriGetir(form.customerId)}>{projeYukleniyor ? "Projeler yükleniyor..." : "Müşterinin projelerini getir / yenile"}</button>
+                        {projeHatasi && <p className="form-error">{projeHatasi}</p>}
+                        <div className="odak-project-options">
+                            {[...new Set([...projeSecenekleri, ...form.projectNames])].map(name => <label key={name} className="rule-check"><input type="checkbox" checked={form.projectNames.includes(name)} onChange={ev => formDegistir("projectNames", ev.target.checked ? [...form.projectNames, name] : form.projectNames.filter(x => x !== name))} /> {name}</label>)}
+                        </div>
+                        {form.projectNames.length > 0 && <button type="button" className="btn-secondary" onClick={() => formDegistir("projectNames", [])}>Seçimi temizle (tüm projeler)</button>}
+                    </div>
                     <div className="odak-admin-role"><div><strong>Hesap Rolü</strong><small>Admin yetkisini yalnızca yetkili kişilere verin.</small></div><select value={form.role} onChange={e => formDegistir("role",e.target.value)}><option value="kullanici">Standart Kullanıcı</option><option value="admin">Admin</option></select></div>
                     <div className="form-section">
                         <label className="section-label"><i className="ti ti-shield" /> Yetkiler</label>

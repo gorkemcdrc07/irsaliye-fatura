@@ -1117,3 +1117,5 @@
 
 .odak-admin-role{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:14px 0;padding:15px;border:1px solid #dce6f3;border-radius:12px;background:#f7faff}.odak-admin-role>div{display:flex;flex-direction:column;gap:5px}.odak-admin-role small{color:#7186a3;font-size:11px}.odak-admin-role select{padding:10px;border:1px solid #d5e0ee;border-radius:9px;background:white;color:#193354}
 
+
+.odak-project-permissions{padding:16px;border:1px solid #dbe4f0;border-radius:12px;margin:16px 0}.odak-project-permissions p{font-size:13px;color:#64748b}.odak-project-options{max-height:220px;overflow:auto;display:grid;gap:8px;margin:12px 0}.odak-project-options .rule-check{display:flex;align-items:center;gap:9px;padding:8px;border-radius:8px;background:#f8fafc}

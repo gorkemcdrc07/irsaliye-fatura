@@ -38,7 +38,7 @@ function TeslimEvraklari() {
         if (!adminGorunumu) return;
         let active = true;
         (async () => {
-            const { data, error } = await supabase.from("users").select("id, user_name, customer_id, is_active").eq("is_active", true).order("user_name");
+            const { data, error } = await supabase.from("users").select("id, user_name, customer_id, is_active, allowed_project_names").eq("is_active", true).order("user_name");
             if (!active) return;
             if (error) { setAdminMusteriHata("Müşteri listesi yüklenemedi."); return; }
             setAdminMusteriler((data || []).filter(u => u.customer_id != null && String(u.customer_id).trim() !== "" && Number(u.customer_id) !== 0 && Number.isFinite(Number(u.customer_id))));
@@ -537,16 +537,19 @@ function TeslimEvraklari() {
                 driverId: 0,
             });
             const liste = Array.isArray(data) ? data : data?.data || data?.items || data?.result || [];
+            const hedefKullanici = seciliMusteri || (await supabase.from("users").select("allowed_project_names").eq("user_name", localStorage.getItem("kullaniciAdi") || "").eq("customer_id", customerId).maybeSingle()).data;
+            const izinliProjeler = Array.isArray(hedefKullanici?.allowed_project_names) ? hedefKullanici.allowed_project_names : [];
+            const gorunenListe = izinliProjeler.length ? liste.filter(x => izinliProjeler.includes(String(x.ProjectName ?? x.projectName ?? x.projectname ?? "").trim())) : liste;
             const bitisZamani = performance.now();
 
             setLogBilgisi({
                 tarih: islemTarihi.toLocaleDateString("tr-TR"),
                 saat: islemTarihi.toLocaleTimeString("tr-TR"),
                 sure: ((bitisZamani - baslamaZamani) / 1000).toFixed(2),
-                kayitSayisi: liste.length
+                kayitSayisi: gorunenListe.length
             });
             if (istekNo.current !== aktifIstek) return;
-            const temizListe = liste.map((evrak) => ({
+            const temizListe = gorunenListe.map((evrak) => ({
                 ...evrak,
                 files: [],
                 fileContentLoading: true,

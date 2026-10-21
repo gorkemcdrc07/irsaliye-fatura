@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+﻿import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
@@ -12,11 +12,10 @@ export default defineConfig({
             },
 
             "/odak-api": {
-                target: "https://api.odaklojistik.com.tr",
+                target: "https://tedarik-analiz-sho-api.onrender.com",
                 changeOrigin: true,
                 secure: false,
-                rewrite: (path) =>
-                    path.replace(/^\/odak-api/, ""),
+                
             },
         },
     },
